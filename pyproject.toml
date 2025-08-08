@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "drawing-machine"
+version = "0.1.0"
+description = "Drawing Machine Project"
+authors = ["nicohaberkorn <haberkornico@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4"
+fastapi = "^0.116.1"
+uvicorn = {extras = ["standard"], version = "^0.35.0"}
+pydantic = "^2.11.7"
+aiohttp = "^3.12.15"
+web3 = "^7.13.0"
+pyserial = "^3.5"
+pytest = "^8.4.1"
+pytest-asyncio = "^1.1.0"
+black = "^25.1.0"
+ruff = "^0.12.8"
+mypy = "^1.17.1"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
