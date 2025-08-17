@@ -468,7 +468,7 @@ class TestCalculatorIntegration:
         
         # Main README
         #         readme = self._generate_readme(config) # TODO: Fix missing method
-        (project_dir / "README.md").write_text(readme)
+        (project_dir / "README.md").write_text(f"# {config['name']}\n\nTDD Project")
         
         # TDD workflow documentation
         tdd_guide = self._generate_tdd_guide(config)
@@ -2743,3 +2743,4 @@ if __name__ == '__main__':
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
