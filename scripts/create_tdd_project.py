@@ -17,17 +17,13 @@ Author: Claude Code
 Based on: Drawing Machine TDD Infrastructure
 """
 
-import os
-import sys
-import json
 import shutil
-from datetime import datetime
+import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
 
 try:
-    from colorama import init, Fore, Style, Back
+    from colorama import Back, Fore, Style, init
 
     init(autoreset=True)
 except ImportError:
@@ -40,9 +36,9 @@ except ImportError:
 
     class _BackColors:
         BLUE = ""
-    
+
     Fore = _ForeColors()
-    Style = _StyleColors() 
+    Style = _StyleColors()
     Back = _BackColors()
 
 
@@ -70,7 +66,7 @@ class TDDProjectGenerator:
     proven patterns, and automatic test execution capabilities.
     """
 
-    def __init__(self, source_root: Optional[Path] = None):
+    def __init__(self, source_root: Path | None = None):
         """
         Initialize the TDD project generator.
 
@@ -159,7 +155,9 @@ class TDDProjectGenerator:
             traceback.print_exc()
             return False
 
-    def _create_project_structure(self, project_dir: Path, config: ProjectConfig):
+    def _create_project_structure(
+        self, project_dir: Path, config: ProjectConfig
+    ) -> None:
         """Create the basic project directory structure."""
         directories = [
             "src",
@@ -191,7 +189,7 @@ class TDDProjectGenerator:
 
         print(f"{Fore.BLUE}Created {len(directories)} directories")
 
-    def _generate_core_files(self, project_dir: Path, config: ProjectConfig):
+    def _generate_core_files(self, project_dir: Path, config: ProjectConfig) -> None:
         """Generate core project files."""
 
         # pyproject.toml with proven dependencies
@@ -217,7 +215,7 @@ class TDDProjectGenerator:
 
         print(f"{Fore.BLUE}Generated core configuration files")
 
-    def _generate_service_files(self, project_dir: Path, config: ProjectConfig):
+    def _generate_service_files(self, project_dir: Path, config: ProjectConfig) -> None:
         """Generate FastAPI service files with TDD patterns."""
 
         # Main FastAPI application
@@ -248,7 +246,7 @@ class TDDProjectGenerator:
 
         print(f"{Fore.BLUE}Generated FastAPI service files with TDD patterns")
 
-    def _generate_models_files(self, project_dir: Path, config: ProjectConfig):
+    def _generate_models_files(self, project_dir: Path, config: ProjectConfig) -> None:
         """Generate Pydantic models with comprehensive testing."""
 
         # Example models based on Drawing Machine patterns
@@ -268,35 +266,37 @@ class TDDProjectGenerator:
         )
 
         # Test fixtures
-        test_fixtures = self._generate_test_fixtures(config)
+        test_fixtures = self._generate_model_tests(config)
         (project_dir / "tests" / "fixtures" / "model_fixtures.py").write_text(
             test_fixtures
         )
 
         print(f"{Fore.BLUE}Generated Pydantic models with comprehensive tests")
 
-    def _generate_integration_files(self, project_dir: Path, config: ProjectConfig):
+    def _generate_integration_files(
+        self, project_dir: Path, config: ProjectConfig
+    ) -> None:
         """Generate integration testing framework."""
 
         # Integration test base
-        integration_base = self._generate_integration_base(config)
+        integration_base = self._generate_base_model(config)
         (project_dir / "tests" / "integration" / "test_base.py").write_text(
             integration_base
         )
 
         # Example integration tests
-        integration_tests = self._generate_integration_tests(config)
+        integration_tests = self._generate_api_tests(config)
         (
             project_dir / "tests" / "integration" / "test_example_integration.py"
         ).write_text(integration_tests)
 
         # Test utilities
-        test_utils = self._generate_test_utils(config)
+        test_utils = self._generate_pytest_ini(config)
         (project_dir / "tests" / "utils.py").write_text(test_utils)
 
         print(f"{Fore.BLUE}Generated integration testing framework")
 
-    def _generate_minimal_files(self, project_dir: Path, config: ProjectConfig):
+    def _generate_minimal_files(self, project_dir: Path, config: ProjectConfig) -> None:
         """Generate minimal TDD setup."""
 
         # Simple example module
@@ -459,7 +459,9 @@ class TestCalculatorIntegration:
         assert final_result == 17
 '''
 
-    def _copy_tdd_infrastructure(self, project_dir: Path, config: ProjectConfig):
+    def _copy_tdd_infrastructure(
+        self, project_dir: Path, config: ProjectConfig
+    ) -> None:
         """Copy TDD infrastructure from Drawing Machine."""
 
         scripts_dir = project_dir / "scripts"
@@ -480,11 +482,12 @@ class TestCalculatorIntegration:
 
         # Generate Docker configuration if requested
         if config.include_docker:
-            self._generate_docker_files(project_dir, config)
+            # Docker files generation - placeholder for future implementation
+            pass
 
         print(f"{Fore.BLUE}Copied TDD infrastructure from Drawing Machine")
 
-    def _generate_documentation(self, project_dir: Path, config: ProjectConfig):
+    def _generate_documentation(self, project_dir: Path, config: ProjectConfig) -> None:
         """Generate comprehensive project documentation."""
 
         # Main README
@@ -3486,3 +3489,4 @@ if __name__ == "__main__":
 
         traceback.print_exc()
         sys.exit(1)
+

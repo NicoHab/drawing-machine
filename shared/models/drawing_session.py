@@ -12,12 +12,12 @@ import uuid
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
+from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 from .blockchain_data import EthereumDataSnapshot
-from .motor_commands import MotorVelocityCommands, MotorSafetyLimits
+from .motor_commands import MotorSafetyLimits, MotorVelocityCommands
 
 
 class DrawingMode(str, Enum):
@@ -66,8 +66,8 @@ class DrawingSessionError(Exception):
     def __init__(
         self,
         message: str,
-        session_id: Optional[str] = None,
-        mode: Optional[DrawingMode] = None,
+        session_id: str | None = None,
+        mode: DrawingMode | None = None,
     ):
         self.session_id = session_id
         self.mode = mode
@@ -188,7 +188,7 @@ class ManualModeConfig(BaseModel):
         default=True, description="Record manual commands for later replay"
     )
 
-    recording_file_path: Optional[str] = Field(
+    recording_file_path: str | None = Field(
         default=None, description="Path to save recorded session data"
     )
 
@@ -271,7 +271,7 @@ class OfflineModeConfig(BaseModel):
         default=0, ge=0, description="Epoch number to start playback from"
     )
 
-    end_at_epoch: Optional[int] = Field(
+    end_at_epoch: int | None = Field(
         default=None,
         ge=0,
         description="Epoch number to end playback (None for full sequence)",
@@ -315,7 +315,7 @@ class OfflineModeConfig(BaseModel):
 
     @computed_field
     @property
-    def estimated_duration_minutes(self) -> Optional[float]:
+    def estimated_duration_minutes(self) -> float | None:
         """Estimate playback duration based on sequence length and speed."""
         # This would be calculated from actual sequence file analysis
         # For now, return None as placeholder
@@ -374,20 +374,20 @@ class SessionStatistics(BaseModel):
         description="Average command execution latency in milliseconds",
     )
 
-    data_quality_scores: List[float] = Field(
+    data_quality_scores: list[float] = Field(
         default_factory=list, description="Historical data quality scores"
     )
 
-    api_response_times: List[float] = Field(
+    api_response_times: list[float] = Field(
         default_factory=list,
         description="Historical API response times in milliseconds",
     )
 
-    motor_temperature_readings: Dict[str, List[float]] = Field(
+    motor_temperature_readings: dict[str, list[float]] = Field(
         default_factory=dict, description="Motor temperature readings over time"
     )
 
-    power_consumption_watts: List[float] = Field(
+    power_consumption_watts: list[float] = Field(
         default_factory=list, description="Power consumption readings in watts"
     )
 
@@ -551,23 +551,23 @@ class DrawingSessionConfig(BaseModel):
         default_factory=datetime.now, description="Session start time"
     )
 
-    end_time: Optional[datetime] = Field(
+    end_time: datetime | None = Field(
         default=None, description="Session end time (calculated from start + duration)"
     )
 
-    blockchain_config: Optional[BlockchainModeConfig] = Field(
+    blockchain_config: BlockchainModeConfig | None = Field(
         default=None, description="Blockchain mode configuration"
     )
 
-    manual_config: Optional[ManualModeConfig] = Field(
+    manual_config: ManualModeConfig | None = Field(
         default=None, description="Manual mode configuration"
     )
 
-    offline_config: Optional[OfflineModeConfig] = Field(
+    offline_config: OfflineModeConfig | None = Field(
         default=None, description="Offline mode configuration"
     )
 
-    hybrid_blockchain_weight: Optional[float] = Field(
+    hybrid_blockchain_weight: float | None = Field(
         default=0.7,
         ge=0.0,
         le=1.0,
@@ -720,11 +720,11 @@ class DrawingSession(BaseModel):
         default=False, description="Whether session is actively running"
     )
 
-    current_motor_commands: Optional[MotorVelocityCommands] = Field(
+    current_motor_commands: MotorVelocityCommands | None = Field(
         default=None, description="Current motor command set being executed"
     )
 
-    current_blockchain_data: Optional[EthereumDataSnapshot] = Field(
+    current_blockchain_data: EthereumDataSnapshot | None = Field(
         default=None,
         description="Current blockchain data (for blockchain/hybrid modes)",
     )
@@ -733,7 +733,7 @@ class DrawingSession(BaseModel):
         default_factory=SessionStatistics, description="Session performance statistics"
     )
 
-    error_log: List[str] = Field(
+    error_log: list[str] = Field(
         default_factory=list, description="Session error messages"
     )
 
@@ -802,7 +802,7 @@ class DrawingSession(BaseModel):
             )
             return max(0.0, estimated_total_minutes - elapsed_minutes)
 
-    def get_session_health_summary(self) -> Dict[str, Union[str, float]]:
+    def get_session_health_summary(self) -> dict[str, str | float]:
         """Generate session health summary."""
         # Calculate progress percentage directly to avoid computed field recursion
         progress_percent = 0.0
@@ -900,7 +900,7 @@ class DrawingSession(BaseModel):
         return True
 
     def advance_epoch(
-        self, motor_commands: Optional[MotorVelocityCommands] = None
+        self, motor_commands: MotorVelocityCommands | None = None
     ) -> bool:
         """Advance to the next epoch."""
         if not self.is_active or self.status != SessionStatus.ACTIVE:
@@ -939,7 +939,7 @@ class DrawingSession(BaseModel):
             self.error_log = self.error_log[-50:]
 
     def switch_mode(
-        self, new_mode: DrawingMode, new_config: Optional[Dict[str, Any]] = None
+        self, new_mode: DrawingMode, new_config: dict[str, Any] | None = None
     ) -> bool:
         """Switch drawing mode during session (if supported)."""
         if not self.is_active:

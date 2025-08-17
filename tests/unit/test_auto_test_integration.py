@@ -4,17 +4,13 @@ Integration test for the Auto Test Runner with TestExecutor.
 Tests the complete functionality including file watching and automatic test execution.
 """
 
-import os
-import time
-import tempfile
+import sys
 from datetime import datetime
 from pathlib import Path
 
-import sys
-from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
-from auto_test_runner import FileWatcher, TestExecutor, FileChangeEvent
+from auto_test_runner import FileChangeEvent, FileWatcher, TestExecutor
 
 
 def test_test_executor():
@@ -154,7 +150,6 @@ def test_command_line_interface():
     print("\nTesting command line interface...")
 
     # Test help (this would normally require subprocess but let's verify options exist)
-    from auto_test_runner import __name__ as module_name
 
     # Verify new command line options are available
     expected_options = [
@@ -290,3 +285,4 @@ if __name__ == "__main__":
 
     # Exit with appropriate code
     exit(0 if success else 1)
+

@@ -4,19 +4,18 @@ Development Environment Test Script
 Tests all components of the drawing machine development environment.
 """
 
-import asyncio
+import json
 import socket
 import time
-import requests
+
 import psycopg2
 import redis
-import json
-from typing import Dict, List, Tuple
+import requests
 
 
 class DevEnvironmentTester:
     def __init__(self):
-        self.results: List[Tuple[str, bool, str]] = []
+        self.results: list[tuple[str, bool, str]] = []
 
     def log_test(self, test_name: str, success: bool, message: str):
         """Log test result"""
@@ -232,7 +231,7 @@ class DevEnvironmentTester:
             self.log_test("Docker Network", False, f"Network check failed: {e}")
             return False
 
-    def run_all_tests(self) -> Dict[str, any]:
+    def run_all_tests(self) -> dict[str, any]:
         """Run all tests and return summary"""
         print("🚀 Starting Development Environment Tests...\n")
 
@@ -256,7 +255,7 @@ class DevEnvironmentTester:
         success_rate = (passed / total) * 100
 
         print("=" * 50)
-        print(f"📊 TEST SUMMARY")
+        print("📊 TEST SUMMARY")
         print(f"Passed: {passed}/{total} ({success_rate:.1f}%)")
         print("=" * 50)
 
@@ -280,3 +279,4 @@ if __name__ == "__main__":
 
     # Exit with error code if tests failed
     exit(0 if summary["all_passed"] else 1)
+

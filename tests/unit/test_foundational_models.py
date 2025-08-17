@@ -6,55 +6,48 @@ Validates model creation, validation, serialization, and integration between com
 """
 
 import json
-import uuid
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, Any
+from datetime import datetime
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 # Import all model modules
 from shared.models.blockchain_data import (
-    EthereumDataSnapshot,
-    DataQuality,
-    ApiResponseTimes,
-    BlockchainDataValidationError,
-    MarketCondition,
-    ActivityLevel,
     EXAMPLE_SCHEMA,
     HIGH_ACTIVITY_EXAMPLE,
+    ActivityLevel,
+    ApiResponseTimes,
+    DataQuality,
+    EthereumDataSnapshot,
+    MarketCondition,
 )
-
-from shared.models.motor_commands import (
-    MotorVelocityCommands,
-    MotorState,
-    CommandExecutionStatus,
-    MotorSafetyLimits,
-    SingleMotorCommand,
-    MotorDirection,
-    MotorName,
-    MotorCommandError,
-    EXAMPLE_MOTOR_COMMANDS,
-    EMERGENCY_STOP_EXAMPLE,
-)
-
 from shared.models.drawing_session import (
-    DrawingSession,
-    DrawingSessionConfig,
-    DrawingMode,
-    SessionStatus,
-    BlockchainModeConfig,
-    ManualModeConfig,
-    OfflineModeConfig,
-    SessionStatistics,
-    PlaybackSpeed,
-    ControlSensitivity,
-    DrawingSessionError,
     BLOCKCHAIN_SESSION_EXAMPLE,
     MANUAL_SESSION_EXAMPLE,
-    OFFLINE_SESSION_EXAMPLE,
-    HYBRID_SESSION_EXAMPLE,
+    BlockchainModeConfig,
+    ControlSensitivity,
+    DrawingMode,
+    DrawingSession,
+    DrawingSessionConfig,
+    DrawingSessionError,
+    ManualModeConfig,
+    OfflineModeConfig,
+    PlaybackSpeed,
+    SessionStatistics,
+    SessionStatus,
+)
+from shared.models.motor_commands import (
+    EMERGENCY_STOP_EXAMPLE,
+    EXAMPLE_MOTOR_COMMANDS,
+    CommandExecutionStatus,
+    MotorCommandError,
+    MotorDirection,
+    MotorName,
+    MotorSafetyLimits,
+    MotorState,
+    MotorVelocityCommands,
+    SingleMotorCommand,
 )
 
 
@@ -62,7 +55,7 @@ class TestFixtures:
     """Test data fixtures for model testing."""
 
     @pytest.fixture
-    def valid_api_response_times(self) -> Dict[str, float]:
+    def valid_api_response_times(self) -> dict[str, float]:
         """Valid API response times data."""
         return {
             "coinbase_ms": 150.5,
@@ -71,7 +64,7 @@ class TestFixtures:
         }
 
     @pytest.fixture
-    def valid_data_quality(self) -> Dict[str, Any]:
+    def valid_data_quality(self) -> dict[str, Any]:
         """Valid data quality data."""
         return {
             "price_data_fresh": True,
@@ -84,7 +77,7 @@ class TestFixtures:
     @pytest.fixture
     def valid_ethereum_data(
         self, valid_data_quality, valid_api_response_times
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Valid Ethereum data snapshot."""
         return {
             "timestamp": datetime.now().timestamp(),
@@ -98,12 +91,12 @@ class TestFixtures:
         }
 
     @pytest.fixture
-    def valid_motor_command(self) -> Dict[str, Any]:
+    def valid_motor_command(self) -> dict[str, Any]:
         """Valid single motor command."""
         return {"velocity_rpm": 45.5, "direction": "CW"}
 
     @pytest.fixture
-    def valid_motor_commands_data(self, valid_ethereum_data) -> Dict[str, Any]:
+    def valid_motor_commands_data(self, valid_ethereum_data) -> dict[str, Any]:
         """Valid motor velocity commands data."""
         return {
             "timestamp": datetime.now().timestamp(),
@@ -124,7 +117,7 @@ class TestFixtures:
         }
 
     @pytest.fixture
-    def valid_session_config(self) -> Dict[str, Any]:
+    def valid_session_config(self) -> dict[str, Any]:
         """Valid drawing session configuration."""
         return {
             "mode": "blockchain",
@@ -865,3 +858,4 @@ class TestModelIntegration(TestFixtures):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+

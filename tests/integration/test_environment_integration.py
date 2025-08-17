@@ -9,11 +9,11 @@ import socket
 import subprocess
 import time
 from pathlib import Path
-import requests
-import yaml
+
 import psycopg2
 import redis
-from typing import Dict, List, Tuple
+import requests
+import yaml
 
 
 class EnvironmentValidator:
@@ -224,7 +224,7 @@ class EnvironmentValidator:
         for config_file in config_files:
             file_path = self.project_root / config_file
             try:
-                with open(file_path, "r") as f:
+                with open(file_path) as f:
                     yaml.safe_load(f)
                 self.log_test(f"Config: {Path(config_file).name}", "PASS")
             except Exception as e:
@@ -236,12 +236,12 @@ class EnvironmentValidator:
     def test_python_environment(self) -> bool:
         """Test Python environment and dependencies."""
         try:
-            import fastapi
-            import uvicorn
-            import sqlalchemy
-            import pydantic
             import aiohttp
+            import fastapi
             import prometheus_client
+            import pydantic
+            import sqlalchemy
+            import uvicorn
 
             # Some packages might not have __version__, so handle gracefully
             def get_version(module):
@@ -333,7 +333,7 @@ class EnvironmentValidator:
         self.log_test("VS Code Workspace", "PASS", "All configuration files present")
         return True
 
-    async def run_all_tests(self) -> Dict:
+    async def run_all_tests(self) -> dict:
         """Run all validation tests."""
         print("🚀 Starting Drawing Machine Environment Final Validation")
         print("=" * 70)
@@ -388,3 +388,4 @@ async def main():
 if __name__ == "__main__":
     results = asyncio.run(main())
     print(f"\nValidation complete. Success rate: {results['success_rate']:.1f}%")
+

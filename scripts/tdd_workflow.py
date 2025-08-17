@@ -6,16 +6,15 @@ automates test execution, and ensures high code quality through iterative testin
 Built on proven patterns from the Drawing Machine foundational model testing.
 """
 
-import json
-import subprocess
-import sys
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Union
-from dataclasses import dataclass, asdict
-from enum import Enum
-import re
 import ast
+import json
+import re
+import subprocess
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
 
 class TestStatus(str, Enum):
@@ -47,9 +46,9 @@ class TestResult:
     test_name: str
     status: TestStatus
     duration_ms: float
-    error_message: Optional[str] = None
-    traceback: Optional[str] = None
-    coverage_percent: Optional[float] = None
+    error_message: str | None = None
+    traceback: str | None = None
+    coverage_percent: float | None = None
 
 
 @dataclass
@@ -64,7 +63,7 @@ class TestSuiteResult:
     skipped: int
     total_duration_ms: float
     coverage_percent: float
-    test_results: List[TestResult]
+    test_results: list[TestResult]
     timestamp: float
 
 
@@ -74,12 +73,12 @@ class ComponentSpecification:
 
     name: str
     description: str
-    requirements: List[str]
-    dependencies: List[str]
-    interfaces: Dict[str, Any]
-    validation_rules: List[str]
-    examples: Dict[str, Any]
-    success_criteria: List[str]
+    requirements: list[str]
+    dependencies: list[str]
+    interfaces: dict[str, Any]
+    validation_rules: list[str]
+    examples: dict[str, Any]
+    success_criteria: list[str]
 
 
 class TestFirstWorkflow:
@@ -94,7 +93,7 @@ class TestFirstWorkflow:
     5. Validate completion criteria
     """
 
-    def __init__(self, project_root: Union[str, Path], test_directory: str = "tests"):
+    def __init__(self, project_root: str | Path, test_directory: str = "tests"):
         """
         Initialize TDD workflow manager.
 
@@ -107,7 +106,7 @@ class TestFirstWorkflow:
         self.reports_directory = self.project_root / "reports" / "tdd"
         self.current_phase = WorkflowPhase.SPECIFICATION
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.test_history: List[TestSuiteResult] = []
+        self.test_history: list[TestSuiteResult] = []
         self.coverage_threshold = 80.0
 
         # Ensure directories exist
@@ -169,7 +168,7 @@ class TestFirstWorkflow:
         # Run initial test cycle
         return self.run_test_cycle(test_file)
 
-    def run_test_cycle(self, test_file: Optional[Path] = None) -> bool:
+    def run_test_cycle(self, test_file: Path | None = None) -> bool:
         """
         Execute the test-fix-iterate cycle until all tests pass.
 
@@ -213,7 +212,7 @@ class TestFirstWorkflow:
 
         return False
 
-    def validate_completion(self, spec: ComponentSpecification) -> Dict[str, Any]:
+    def validate_completion(self, spec: ComponentSpecification) -> dict[str, Any]:
         """
         Validate that all completion criteria are met.
 
@@ -225,7 +224,7 @@ class TestFirstWorkflow:
         """
         self.current_phase = WorkflowPhase.VALIDATION
 
-        validation_results: Dict[str, Any] = {
+        validation_results: dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "component": spec.name,
             "criteria": {},
@@ -278,7 +277,7 @@ class TestFirstWorkflow:
 
         return validation_results
 
-    def generate_comprehensive_report(self) -> Dict[str, Any]:
+    def generate_comprehensive_report(self) -> dict[str, Any]:
         """
         Generate comprehensive TDD session report.
 
@@ -406,7 +405,7 @@ if __name__ == "__main__":
         return test_template
 
     def _generate_implementation_template(
-        self, requirements: List[str], impl_path: Path
+        self, requirements: list[str], impl_path: Path
     ) -> str:
         """Generate minimal implementation template to start TDD cycle."""
         class_name = impl_path.stem.title().replace("_", "")
@@ -481,12 +480,12 @@ class {class_name}(BaseModel):
 
         return template
 
-    def _extract_requirements_from_tests(self, test_file: Path) -> List[str]:
+    def _extract_requirements_from_tests(self, test_file: Path) -> list[str]:
         """Extract implementation requirements from test file."""
         requirements = []
 
         try:
-            with open(test_file, "r", encoding="utf-8") as f:
+            with open(test_file, encoding="utf-8") as f:
                 content = f.read()
 
             # Parse test file to extract requirements
@@ -506,7 +505,7 @@ class {class_name}(BaseModel):
 
         return requirements
 
-    def _run_pytest(self, test_file: Optional[Path] = None) -> TestSuiteResult:
+    def _run_pytest(self, test_file: Path | None = None) -> TestSuiteResult:
         """Run pytest and parse results."""
         cmd = ["python", "-m", "pytest"]
 
@@ -535,7 +534,7 @@ class {class_name}(BaseModel):
             # Parse pytest JSON report
             report_file = self.reports_directory / "pytest_report.json"
             if report_file.exists():
-                with open(report_file, "r") as f:
+                with open(report_file) as f:
                     pytest_report = json.load(f)
                 return self._parse_pytest_report(pytest_report)
             else:
@@ -571,7 +570,7 @@ class {class_name}(BaseModel):
                 timestamp=datetime.now().timestamp(),
             )
 
-    def _parse_pytest_report(self, report: Dict[str, Any]) -> TestSuiteResult:
+    def _parse_pytest_report(self, report: dict[str, Any]) -> TestSuiteResult:
         """Parse pytest JSON report into TestSuiteResult."""
         summary = report.get("summary", {})
 
@@ -630,7 +629,7 @@ class {class_name}(BaseModel):
         coverage_file = self.project_root / "coverage.json"
         if coverage_file.exists():
             try:
-                with open(coverage_file, "r") as f:
+                with open(coverage_file) as f:
                     coverage_data = json.load(f)
                 return coverage_data.get("totals", {}).get("percent_covered", 0.0)
             except Exception:
@@ -709,7 +708,7 @@ class {class_name}(BaseModel):
 
         print(f"Test report saved: {report_file}")
 
-    def _save_validation_report(self, validation_results: Dict[str, Any]) -> None:
+    def _save_validation_report(self, validation_results: dict[str, Any]) -> None:
         """Save validation results to file."""
         report_file = self.reports_directory / f"validation_{self.session_id}.json"
         with open(report_file, "w", encoding="utf-8") as f:
@@ -717,7 +716,7 @@ class {class_name}(BaseModel):
 
         print(f"Validation report saved: {report_file}")
 
-    def _generate_summary_statistics(self) -> Dict[str, Any]:
+    def _generate_summary_statistics(self) -> dict[str, Any]:
         """Generate summary statistics for the TDD session."""
         if not self.test_history:
             return {"message": "No test runs recorded"}
@@ -749,12 +748,12 @@ class {class_name}(BaseModel):
 def create_component_specification(
     name: str,
     description: str,
-    requirements: List[str],
-    dependencies: Optional[List[str]] = None,
-    interfaces: Optional[Dict[str, Any]] = None,
-    validation_rules: Optional[List[str]] = None,
-    examples: Optional[Dict[str, Any]] = None,
-    success_criteria: Optional[List[str]] = None,
+    requirements: list[str],
+    dependencies: list[str] | None = None,
+    interfaces: dict[str, Any] | None = None,
+    validation_rules: list[str] | None = None,
+    examples: dict[str, Any] | None = None,
+    success_criteria: list[str] | None = None,
 ) -> ComponentSpecification:
     """
     Helper function to create component specifications for TDD workflow.
@@ -792,8 +791,8 @@ def create_component_specification(
 
 def run_tdd_workflow(
     spec: ComponentSpecification,
-    project_root: Union[str, Path],
-    implementation_path: Union[str, Path],
+    project_root: str | Path,
+    implementation_path: str | Path,
 ) -> bool:
     """
     Run complete TDD workflow for a component.
@@ -859,3 +858,4 @@ if __name__ == "__main__":
     )
 
     print(f"TDD Workflow {'SUCCEEDED' if success else 'FAILED'}")
+

@@ -8,9 +8,8 @@ to specific motor control parameters in the drawing system.
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional, Union, Any
 
-from pydantic import BaseModel, Field, field_validator, computed_field
+from pydantic import BaseModel, Field, field_validator
 
 
 class BlockchainDataValidationError(Exception):
@@ -19,8 +18,8 @@ class BlockchainDataValidationError(Exception):
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
-        value: Optional[Union[str, int, float]] = None,
+        field: str | None = None,
+        value: str | int | float | None = None,
     ):
         self.field = field
         self.value = value
@@ -87,7 +86,9 @@ class ApiResponseTimes(BaseModel):
         )
 
     @classmethod
-    def model_validate_json_safe(cls, json_data: Union[str, dict]) -> "ApiResponseTimes":
+    def model_validate_json_safe(
+        cls, json_data: str | dict
+    ) -> "ApiResponseTimes":
         """Safe JSON validation that excludes computed fields."""
         if isinstance(json_data, str):
             import json as std_json
@@ -320,7 +321,7 @@ class EthereumDataSnapshot(BaseModel):
         else:
             return ActivityLevel.EXTREME
 
-    def get_motor_control_values(self) -> Dict[str, float]:
+    def get_motor_control_values(self) -> dict[str, float]:
         """
         Generate normalized motor control values (0.0-1.0) from blockchain data.
 

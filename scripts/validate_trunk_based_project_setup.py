@@ -19,11 +19,11 @@ import json
 import os
 import subprocess
 import sys
+import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, field
-import time
+from typing import Any
 
 try:
     import requests
@@ -69,10 +69,10 @@ class TrunkValidationResults:
 
     repository_config: TrunkBasedConfig
     pipeline_authority: PipelineAuthority
-    performance_metrics: Dict[str, Any] = field(default_factory=dict)
-    quality_metrics: Dict[str, Any] = field(default_factory=dict)
+    performance_metrics: dict[str, Any] = field(default_factory=dict)
+    quality_metrics: dict[str, Any] = field(default_factory=dict)
     compliance_score: float = 0.0
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
 
 class TrunkBasedDevelopmentValidator:
@@ -81,7 +81,7 @@ class TrunkBasedDevelopmentValidator:
     with deployment pipeline as quality gatekeeper.
     """
 
-    def __init__(self, project_root: Optional[Path] = None) -> None:
+    def __init__(self, project_root: Path | None = None) -> None:
         """Initialize trunk-based development validator."""
         self.project_root = project_root or Path.cwd()
         self.github_token = os.environ.get("GITHUB_TOKEN")
@@ -231,7 +231,7 @@ class TrunkBasedDevelopmentValidator:
         )
         return config
 
-    def _validate_github_trunk_settings(self, repo_name: str) -> Dict[str, Any]:
+    def _validate_github_trunk_settings(self, repo_name: str) -> dict[str, Any]:
         """Validate GitHub repository settings for trunk-based development."""
         print("🐙 Validating GitHub trunk-based settings...")
 
@@ -328,7 +328,7 @@ class TrunkBasedDevelopmentValidator:
             pipeline_workflows = []
             for workflow_file in workflow_files:
                 try:
-                    with open(workflow_file, "r") as f:
+                    with open(workflow_file) as f:
                         workflow_data = yaml.safe_load(f)
 
                     # Check for push triggers (immediate triggering)
@@ -406,7 +406,7 @@ class TrunkBasedDevelopmentValidator:
             print("❌ No GitHub Actions workflows found")
             print("   Deployment pipeline authority cannot be validated")
 
-        print(f"📊 Pipeline Authority Summary:")
+        print("📊 Pipeline Authority Summary:")
         print(f"   - Immediate triggering: {authority.immediate_triggering}")
         print(f"   - Quality gates: {authority.quality_gates_count}")
         print(f"   - Automatic deployment: {authority.automatic_deployment}")
@@ -415,7 +415,7 @@ class TrunkBasedDevelopmentValidator:
 
         return authority
 
-    def analyze_continuous_integration_performance(self) -> Dict[str, Any]:
+    def analyze_continuous_integration_performance(self) -> dict[str, Any]:
         """Analyze continuous integration performance for trunk-based development."""
         print("⚡ Analyzing continuous integration performance...")
 
@@ -519,7 +519,7 @@ class TrunkBasedDevelopmentValidator:
             advanced_pipeline = workflows_dir / "advanced_deployment_pipeline.yml"
             if advanced_pipeline.exists():
                 try:
-                    with open(advanced_pipeline, "r") as f:
+                    with open(advanced_pipeline) as f:
                         content = f.read()
 
                     # Extract performance targets
@@ -538,11 +538,11 @@ class TrunkBasedDevelopmentValidator:
 
                         if total_target <= 60:
                             print(
-                                f"✅ Pipeline targets support trunk-based development (<1 hour total)"
+                                "✅ Pipeline targets support trunk-based development (<1 hour total)"
                             )
                         else:
                             print(
-                                f"⚠️  Pipeline targets may be too slow for optimal trunk-based development"
+                                "⚠️  Pipeline targets may be too slow for optimal trunk-based development"
                             )
 
                 except Exception as e:
@@ -550,7 +550,7 @@ class TrunkBasedDevelopmentValidator:
 
         return performance
 
-    def verify_feature_flag_implementation(self) -> Dict[str, Any]:
+    def verify_feature_flag_implementation(self) -> dict[str, Any]:
         """Verify feature flag implementation for trunk-based development."""
         print("🚩 Verifying feature flag implementation...")
 
@@ -581,7 +581,9 @@ class TrunkBasedDevelopmentValidator:
             if matches:
                 config_files = feature_flags.get("configuration_files", [])
                 if isinstance(config_files, list):
-                    config_files.extend([str(m.relative_to(self.project_root)) for m in matches])
+                    config_files.extend(
+                        [str(m.relative_to(self.project_root)) for m in matches]
+                    )
                     feature_flags["configuration_files"] = config_files
                 feature_flags["implementation_found"] = True
 
@@ -597,14 +599,17 @@ class TrunkBasedDevelopmentValidator:
 
         for code_file in code_files:
             try:
-                with open(code_file, "r", encoding="utf-8") as f:
+                with open(code_file, encoding="utf-8") as f:
                     content = f.read().lower()
 
                 for keyword in flag_keywords:
                     if keyword in content:
                         rel_path = str(code_file.relative_to(self.project_root))
                         integration_points = feature_flags.get("integration_points", [])
-                        if isinstance(integration_points, list) and rel_path not in integration_points:
+                        if (
+                            isinstance(integration_points, list)
+                            and rel_path not in integration_points
+                        ):
                             integration_points.append(rel_path)
                             feature_flags["integration_points"] = integration_points
                             feature_flags["implementation_found"] = True
@@ -621,7 +626,7 @@ class TrunkBasedDevelopmentValidator:
         )
         if advanced_pipeline.exists():
             try:
-                with open(advanced_pipeline, "r") as f:
+                with open(advanced_pipeline) as f:
                     content = f.read()
 
                 if "enable_feature_flags" in content or "feature_flags" in content:
@@ -634,7 +639,7 @@ class TrunkBasedDevelopmentValidator:
 
         # Assess trunk-based compatibility
         if feature_flags["implementation_found"]:
-            print(f"✅ Feature flag implementation detected")
+            print("✅ Feature flag implementation detected")
             print(
                 f"   - Configuration files: {len(feature_flags['configuration_files'])}"
             )
@@ -660,7 +665,7 @@ class TrunkBasedDevelopmentValidator:
 
         return feature_flags
 
-    def validate_tdd_automation_trunk_integration(self) -> Dict[str, Any]:
+    def validate_tdd_automation_trunk_integration(self) -> dict[str, Any]:
         """Validate TDD automation integration with trunk-based workflow."""
         print("🧪 Validating TDD automation trunk integration...")
 
@@ -676,7 +681,7 @@ class TrunkBasedDevelopmentValidator:
         auto_test_runner = self.project_root / "scripts" / "auto_test_runner.py"
         if auto_test_runner.exists():
             try:
-                with open(auto_test_runner, "r") as f:
+                with open(auto_test_runner) as f:
                     content = f.read()
 
                 # Check for trunk-compatible configuration
@@ -710,7 +715,7 @@ class TrunkBasedDevelopmentValidator:
         tdd_session = self.project_root / ".claude" / "workflows" / "tdd_session.md"
         if tdd_session.exists():
             try:
-                with open(tdd_session, "r") as f:
+                with open(tdd_session) as f:
                     content = f.read()
 
                 # Check for trunk-based session workflows
@@ -735,7 +740,7 @@ class TrunkBasedDevelopmentValidator:
         tdd_pipeline = self.project_root / ".github" / "workflows" / "tdd_pipeline.yml"
         if tdd_pipeline.exists():
             try:
-                with open(tdd_pipeline, "r") as f:
+                with open(tdd_pipeline) as f:
                     content = f.read()
 
                 # Check for TDD-specific pipeline stages
@@ -799,7 +804,7 @@ class TrunkBasedDevelopmentValidator:
 
         return tdd_integration
 
-    def export_trunk_based_configuration(self) -> Dict[str, Any]:
+    def export_trunk_based_configuration(self) -> dict[str, Any]:
         """Export complete trunk-based development configuration."""
         print("📤 Exporting trunk-based development configuration...")
 
@@ -869,7 +874,7 @@ class TrunkBasedDevelopmentValidator:
             # Extract key pipeline information
             for workflow_file in workflow_files:
                 try:
-                    with open(workflow_file, "r") as f:
+                    with open(workflow_file) as f:
                         workflow_data = yaml.safe_load(f)
 
                     config["pipeline_configuration"][workflow_file.stem] = {
@@ -964,7 +969,7 @@ class TrunkBasedDevelopmentValidator:
 
     def generate_trunk_recommendations(
         self, results: TrunkValidationResults
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate recommendations for improving trunk-based development compliance."""
         recommendations = []
 
@@ -1280,3 +1285,4 @@ Key Principles:
 
 if __name__ == "__main__":
     main()
+

@@ -21,3 +21,4 @@ def test_string_operations():
     assert len(test_string) == 15
     assert "Drawing" in test_string
     assert test_string.startswith("Drawing")
+

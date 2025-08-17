@@ -12,44 +12,41 @@ Project: Drawing Machine
 Technology: Python 3.11+ with Poetry, pytest, watchdog
 """
 
-import os
-import sys
-import time
-import threading
 import json
+import os
 import subprocess
+import sys
+import threading
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Set, Dict, Optional, List, Callable
-from dataclasses import dataclass
 
 try:
-    from watchdog.observers import Observer
     from watchdog.events import (
-        FileSystemEventHandler,
-        FileModifiedEvent,
         FileCreatedEvent,
         FileDeletedEvent,
+        FileModifiedEvent,
+        FileSystemEventHandler,
     )
+    from watchdog.observers import Observer
 except ImportError:
     print("Installing required dependencies...")
     os.system("pip install watchdog")
-    from watchdog.observers import Observer
     from watchdog.events import (
         FileSystemEventHandler,
-        FileModifiedEvent,
-        FileCreatedEvent,
-        FileDeletedEvent,
     )
+    from watchdog.observers import Observer
 
 try:
-    from colorama import init, Fore, Style, Back
+    from colorama import Back, Fore, Style, init
 
     init(autoreset=True)
 except ImportError:
     print("Installing colorama for colored output...")
     os.system("pip install colorama")
-    from colorama import init, Fore, Style, Back
+    from colorama import Back, Fore, Style, init
 
     init(autoreset=True)
 
@@ -76,12 +73,12 @@ class TestResult:
     skipped: int
     errors: int
     duration_seconds: float
-    coverage_percent: Optional[float]
+    coverage_percent: float | None
     test_file: str
     triggered_by: str
     timestamp: datetime
-    failure_details: List[str]
-    execution_error: Optional[str] = None
+    failure_details: list[str]
+    execution_error: str | None = None
 
 
 class DrawingMachineFileHandler(FileSystemEventHandler):
@@ -105,7 +102,7 @@ class DrawingMachineFileHandler(FileSystemEventHandler):
         super().__init__()
         self.callback = callback
         self.debounce_delay = debounce_delay
-        self.pending_changes: Dict[str, threading.Timer] = {}
+        self.pending_changes: dict[str, threading.Timer] = {}
         self.lock = threading.Lock()
 
         # Define monitored directories and their purposes
@@ -214,7 +211,7 @@ class DrawingMachineFileHandler(FileSystemEventHandler):
             is_test_file=self.is_test_file(file_path),
         )
 
-    def debounce_change(self, file_path: Path, event_type: str):
+    def debounce_change(self, file_path: Path, event_type: str) -> None:
         """
         Debounce file changes to prevent excessive triggering.
 
@@ -301,7 +298,7 @@ class TestExecutor:
             ],
         }
 
-    def determine_tests_for_file(self, file_path: Path) -> List[str]:
+    def determine_tests_for_file(self, file_path: Path) -> list[str]:
         """
         Determine which tests should run for a changed file.
 
@@ -336,7 +333,7 @@ class TestExecutor:
         return []
 
     def run_tests(
-        self, test_path: Optional[str] = None, with_coverage: bool = True
+        self, test_path: str | None = None, with_coverage: bool = True
     ) -> TestResult:
         """
         Execute pytest with the specified parameters.
@@ -458,7 +455,7 @@ class TestExecutor:
         """
         try:
             if report_file.exists():
-                with open(report_file, "r") as f:
+                with open(report_file) as f:
                     report_data = json.load(f)
 
                 # Extract basic test counts
@@ -532,7 +529,7 @@ class TestExecutor:
             execution_error="PARSE_ERROR",
         )
 
-    def display_test_result(self, result: TestResult):
+    def display_test_result(self, result: TestResult) -> None:
         """
         Display test results with colored output.
 
@@ -591,7 +588,7 @@ class FileWatcher:
 
     def __init__(
         self,
-        project_root: Optional[Path] = None,
+        project_root: Path | None = None,
         debounce_delay: float = 2.0,
         enable_auto_tests: bool = True,
     ):
@@ -606,11 +603,11 @@ class FileWatcher:
         self.project_root = project_root or Path.cwd()
         self.debounce_delay = debounce_delay
         self.enable_auto_tests = enable_auto_tests
-        self.observer: Optional[Observer] = None
+        self.observer: Observer | None = None
         self.is_watching = False
 
         # Statistics tracking
-        self.start_time: Optional[datetime] = None
+        self.start_time: datetime | None = None
         self.events_detected = 0
         self.events_processed = 0
         self.tests_executed = 0
@@ -663,7 +660,7 @@ class FileWatcher:
         print(f"{Fore.GREEN}Drawing Machine project structure validated")
         return True
 
-    def get_monitored_paths(self) -> List[Path]:
+    def get_monitored_paths(self) -> list[Path]:
         """
         Get list of paths to monitor.
 
@@ -681,7 +678,7 @@ class FileWatcher:
 
         return paths
 
-    def handle_file_change(self, event: FileChangeEvent):
+    def handle_file_change(self, event: FileChangeEvent) -> None:
         """
         Handle a debounced file change event.
 
@@ -728,7 +725,7 @@ class FileWatcher:
         if self.enable_auto_tests and event.event_type != "deleted":
             self.trigger_tests(event)
 
-    def trigger_tests(self, event: FileChangeEvent):
+    def trigger_tests(self, event: FileChangeEvent) -> None:
         """
         Trigger appropriate tests based on the file change event.
 
@@ -1116,3 +1113,4 @@ if __name__ == "__main__":
         # Start watching
         success = watcher.start_watching()
         sys.exit(0 if success else 1)
+

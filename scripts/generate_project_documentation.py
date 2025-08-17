@@ -17,17 +17,13 @@ Features:
 
 import argparse
 import ast
-import json
-import os
 import re
 import subprocess
 import sys
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Set
-from dataclasses import dataclass, field
-import inspect
-import importlib.util
+from typing import Any
 
 try:
     import yaml
@@ -35,7 +31,6 @@ try:
 except ImportError:
     print("📦 Installing required dependencies...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "pyyaml", "jinja2"])
-    import yaml
     from jinja2 import Environment, FileSystemLoader
 
 
@@ -45,13 +40,13 @@ class DocComponent:
 
     name: str
     type: str  # 'function', 'class', 'module', 'endpoint'
-    docstring: Optional[str] = None
-    signature: Optional[str] = None
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    examples: List[str] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)
-    test_references: List[str] = field(default_factory=list)
+    docstring: str | None = None
+    signature: str | None = None
+    file_path: str | None = None
+    line_number: int | None = None
+    examples: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    test_references: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -62,9 +57,9 @@ class APIEndpoint:
     method: str
     function_name: str
     description: str
-    parameters: List[Dict] = field(default_factory=list)
-    responses: Dict = field(default_factory=dict)
-    examples: List[Dict] = field(default_factory=list)
+    parameters: list[dict] = field(default_factory=list)
+    responses: dict = field(default_factory=dict)
+    examples: list[dict] = field(default_factory=list)
 
 
 class DrawingMachineDocGenerator:
@@ -94,9 +89,9 @@ class DrawingMachineDocGenerator:
         self.templates_dir = self.project_root / "docs" / "templates"
 
         # Discovered components
-        self.components: List[DocComponent] = []
-        self.endpoints: List[APIEndpoint] = []
-        self.modules: Dict[str, Any] = {}
+        self.components: list[DocComponent] = []
+        self.endpoints: list[APIEndpoint] = []
+        self.modules: dict[str, Any] = {}
 
         # TDD infrastructure files for special documentation
         self.tdd_infrastructure = [
@@ -383,7 +378,7 @@ sequenceDiagram
     def analyze_python_file(self, file_path: Path) -> None:
         """Analyze a Python file and extract documentation components."""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Parse AST
@@ -475,7 +470,11 @@ sequenceDiagram
                     if isinstance(arg.annotation, ast.Name):
                         arg_str += f": {arg.annotation.id}"
                     elif isinstance(arg.annotation, ast.Constant):
-                        arg_str += f": {arg.annotation.value}"
+                        value = arg.annotation.value
+                        if isinstance(value, bytes):
+                            arg_str += f": {value.decode()}"
+                        else:
+                            arg_str += f": {value}"
                 args.append(arg_str)
 
         signature += ", ".join(args) + ")"
@@ -485,7 +484,11 @@ sequenceDiagram
             if isinstance(node.returns, ast.Name):
                 signature += f" -> {node.returns.id}"
             elif isinstance(node.returns, ast.Constant):
-                signature += f" -> {node.returns.value}"
+                value = node.returns.value
+                if isinstance(value, bytes):
+                    signature += f" -> {value.decode()}"
+                else:
+                    signature += f" -> {value}"
 
         component = DocComponent(
             name=node.name,
@@ -503,7 +506,7 @@ sequenceDiagram
 
         self.components.append(component)
 
-    def extract_code_examples(self, docstring: str) -> List[str]:
+    def extract_code_examples(self, docstring: str) -> list[str]:
         """Extract code examples from docstring."""
         examples = []
 
@@ -521,7 +524,7 @@ sequenceDiagram
 
         return [ex.strip() for ex in examples if ex.strip()]
 
-    def find_test_references(self, file_path: Path) -> List[str]:
+    def find_test_references(self, file_path: Path) -> list[str]:
         """Find test files that reference this module."""
         test_references = []
 
@@ -610,7 +613,7 @@ sequenceDiagram
 
         print(f"✅ Generated architecture documentation: {arch_doc_path}")
 
-    def analyze_component_relationships(self) -> Dict[str, Any]:
+    def analyze_component_relationships(self) -> dict[str, Any]:
         """Analyze relationships between project components."""
         components = {}
 
@@ -1612,8 +1615,8 @@ pip-licenses --format=json
   if: failure()
   uses: actions/slack@v1
   with:
-    webhook: \${{ secrets.SLACK_WEBHOOK }}
-    message: "TDD Pipeline failed: \${{ github.workflow }}"
+    webhook: \\${{ secrets.SLACK_WEBHOOK }}
+    message: "TDD Pipeline failed: \\${{ github.workflow }}"
 ```
 
 ### Performance Monitoring
@@ -1695,7 +1698,7 @@ docker run --rm drawing-machine:test python -m pytest tests/
   uses: actions/cache@v3
   with:
     path: ~/.cache/pypoetry
-    key: poetry-\${{ runner.os }}-\${{ hashFiles('**/poetry.lock') }}
+    key: poetry-\\${{ runner.os }}-\\${{ hashFiles('**/poetry.lock') }}
 ```
 
 ## Best Practices
@@ -2048,8 +2051,8 @@ This documentation system ensures that the proven methodology can be replicated,
         print("Press Ctrl+C to stop watching")
 
         try:
-            from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
+            from watchdog.observers import Observer
 
             class DocUpdateHandler(FileSystemEventHandler):
                 def __init__(self, doc_generator):
@@ -2147,10 +2150,10 @@ This documentation system ensures that the proven methodology can be replicated,
         print(f"🌐 API endpoints documented: {len(self.endpoints)}")
         print("✅ Git integration complete")
         print("\n📖 View documentation:")
-        print(f"   - Start here: docs/README.md")
-        print(f"   - TDD methodology: docs/tdd/methodology.md")
-        print(f"   - Development setup: docs/development/setup.md")
-        print(f"   - API reference: docs/api/endpoints.md")
+        print("   - Start here: docs/README.md")
+        print("   - TDD methodology: docs/tdd/methodology.md")
+        print("   - Development setup: docs/development/setup.md")
+        print("   - API reference: docs/api/endpoints.md")
 
 
 def main():
@@ -2273,3 +2276,4 @@ Features:
 
 if __name__ == "__main__":
     main()
+

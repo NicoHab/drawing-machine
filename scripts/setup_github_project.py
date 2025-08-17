@@ -9,16 +9,10 @@ Based on the proven Drawing Machine TDD infrastructure achieving 97.6% test succ
 """
 
 import argparse
-import json
 import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import urllib.request
-import urllib.parse
-import urllib.error
-from datetime import datetime
 
 try:
     import requests
@@ -38,9 +32,9 @@ class GitHubRepoConfig:
     description: str
     private: bool = False
     auto_init: bool = False
-    gitignore_template: Optional[str] = None
+    gitignore_template: str | None = None
     license_template: str = "mit"
-    topics: Optional[List[str]] = None
+    topics: list[str] | None = None
     has_issues: bool = True
     has_projects: bool = True
     has_wiki: bool = True
@@ -60,7 +54,7 @@ class DrawingMachineGitHubSetup:
     and TDD methodology enforcement configuration.
     """
 
-    def __init__(self, project_root: Optional[Path] = None) -> None:
+    def __init__(self, project_root: Path | None = None) -> None:
         """Initialize GitHub setup manager."""
         self.project_root = project_root or Path.cwd()
         self.git_token = os.environ.get("GITHUB_TOKEN")
@@ -964,7 +958,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
             print(f"❌ Failed to create initial commits: {e}")
             return False
 
-    def create_github_repository(self, config: GitHubRepoConfig) -> Tuple[bool, str]:
+    def create_github_repository(self, config: GitHubRepoConfig) -> tuple[bool, str]:
         """Create GitHub repository using GitHub API."""
         print(f"🌐 Creating GitHub repository: {config.name}")
 
@@ -1013,7 +1007,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
                 repo_url = repo_info["html_url"]
                 clone_url = repo_info["clone_url"]
 
-                print(f"✅ Repository created successfully!")
+                print("✅ Repository created successfully!")
                 print(f"   URL: {repo_url}")
                 print(f"   Clone URL: {clone_url}")
 
@@ -1032,7 +1026,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
             print(f"❌ Network error creating repository: {e}")
             return False, str(e)
 
-    def _set_repository_topics(self, repo_name: str, topics: List[str]) -> None:
+    def _set_repository_topics(self, repo_name: str, topics: list[str]) -> None:
         """Set repository topics using GitHub API."""
         try:
             headers = {
@@ -1546,13 +1540,14 @@ Environment Variables:
     )
 
     if success:
-        print(f"\n🎉 Repository setup completed successfully!")
+        print("\n🎉 Repository setup completed successfully!")
         print("Ready for TDD development with proven 97.6% success rate methodology")
         sys.exit(0)
     else:
-        print(f"\n❌ Repository setup failed")
+        print("\n❌ Repository setup failed")
         sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
+

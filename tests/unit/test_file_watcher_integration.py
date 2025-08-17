@@ -5,18 +5,15 @@ Tests the complete FileWatcher functionality with real file operations
 to ensure it works correctly in a live environment.
 """
 
-import os
-import time
-import tempfile
-import threading
-from pathlib import Path
-from contextlib import contextmanager
-
 import sys
+import tempfile
+import time
+from contextlib import contextmanager
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
-from auto_test_runner import FileWatcher, FileChangeEvent
+from auto_test_runner import FileChangeEvent, FileWatcher
 
 
 @contextmanager
@@ -97,7 +94,7 @@ def test_file_watcher_integration():
         time.sleep(1.0)
 
         # Analyze results
-        print(f"\nAnalyzing results...")
+        print("\nAnalyzing results...")
         print(f"Total events detected: {len(detected_events)}")
 
         # Filter events for our test file (ignore any system-generated events)
@@ -229,3 +226,4 @@ if __name__ == "__main__":
         print("\nFileWatcher is ready for production use!")
     else:
         print("\nFileWatcher needs attention before production use.")
+

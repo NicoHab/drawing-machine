@@ -13,7 +13,6 @@ sys.path.insert(0, str(project_root))
 
 from scripts.tdd_workflow import (
     TestFirstWorkflow,
-    ComponentSpecification,
     create_component_specification,
     run_tdd_workflow,
 )
@@ -90,7 +89,7 @@ def test_tdd_workflow_basic():
     # Verify test file was created and has content
     assert test_file.exists(), "Test file should be created"
 
-    with open(test_file, "r") as f:
+    with open(test_file) as f:
         test_content = f.read()
 
     # Check that test follows our patterns
@@ -122,7 +121,7 @@ def test_tdd_workflow_basic():
     # Verify implementation template
     assert impl_path.exists(), "Implementation file should be created"
 
-    with open(impl_path, "r") as f:
+    with open(impl_path) as f:
         impl_content = f.read()
 
     assert "BaseModel" in impl_content, "Should use Pydantic BaseModel"
@@ -247,7 +246,7 @@ def test_integration_with_existing_patterns():
     test_file = workflow.write_tests_first(spec)
 
     # Read and verify test content follows our patterns
-    with open(test_file, "r") as f:
+    with open(test_file) as f:
         content = f.read()
 
     # Check for Drawing Machine specific patterns
@@ -407,3 +406,4 @@ if __name__ == "__main__":
 
         traceback.print_exc()
         sys.exit(1)
+

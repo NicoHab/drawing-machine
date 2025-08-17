@@ -9,9 +9,9 @@ by Ethereum blockchain data.
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Union, Any
+from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, computed_field, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 from .blockchain_data import EthereumDataSnapshot
 
@@ -38,8 +38,8 @@ class MotorCommandError(Exception):
     def __init__(
         self,
         message: str,
-        motor_name: Optional[str] = None,
-        command_value: Optional[float] = None,
+        motor_name: str | None = None,
+        command_value: float | None = None,
     ):
         self.motor_name = motor_name
         self.command_value = command_value
@@ -143,7 +143,7 @@ class MotorState(BaseModel):
         ..., description="Unix timestamp of the last command sent to this motor"
     )
 
-    temperature_celsius: Optional[float] = Field(
+    temperature_celsius: float | None = Field(
         default=None,
         ge=-40.0,
         le=100.0,
@@ -253,11 +253,11 @@ class CommandExecutionStatus(BaseModel):
         description="Command execution latency in milliseconds (0-60000)",
     )
 
-    error_message: Optional[str] = Field(
+    error_message: str | None = Field(
         default=None, description="Error message if execution failed"
     )
 
-    motor_responses: List[MotorState] = Field(
+    motor_responses: list[MotorState] = Field(
         default_factory=list,
         description="Individual motor state responses after command execution",
     )
@@ -309,7 +309,7 @@ class CommandExecutionStatus(BaseModel):
 
         return max(0.0, min(1.0, score))
 
-    def get_motor_state(self, motor_name: MotorName) -> Optional[MotorState]:
+    def get_motor_state(self, motor_name: MotorName) -> MotorState | None:
         """Get the state of a specific motor from the responses."""
         for motor_state in self.motor_responses:
             if motor_state.motor_name == motor_name:
@@ -457,7 +457,7 @@ class MotorVelocityCommands(BaseModel):
         description="Duration for which commands should be executed (0.1-60 seconds)",
     )
 
-    motors: Dict[str, SingleMotorCommand] = Field(
+    motors: dict[str, SingleMotorCommand] = Field(
         ..., description="Motor commands mapped by motor name"
     )
 
@@ -465,7 +465,7 @@ class MotorVelocityCommands(BaseModel):
         ..., description="Blockchain data snapshot used to generate these commands"
     )
 
-    calculation_metadata: Dict[str, Any] = Field(
+    calculation_metadata: dict[str, Any] = Field(
         default_factory=dict, description="Metadata about how commands were calculated"
     )
 
@@ -604,7 +604,7 @@ class MotorVelocityCommands(BaseModel):
             safety_limits=self.safety_limits,
         )
 
-    def to_execution_format(self) -> Dict[str, Dict[str, Union[float, str]]]:
+    def to_execution_format(self) -> dict[str, dict[str, float | str]]:
         """Convert to format expected by motor control hardware."""
         return {
             motor_name: {
