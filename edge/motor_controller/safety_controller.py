@@ -87,16 +87,17 @@ class SafetyController:
             )
         
         # Check individual motor velocities
-        motor_checks = [
-            (MotorName.CANVAS, commands.canvas_velocity_rpm),
-            (MotorName.PEN_BRUSH, commands.pen_brush_velocity_rpm),
-            (MotorName.PEN_COLOR_DEPTH, commands.pen_color_depth_velocity_rpm),
-            (MotorName.PEN_ELEVATION, commands.pen_elevation_velocity_rpm),
-        ]
-        
-        for motor_name, velocity in motor_checks:
-            await self._check_velocity_limits(motor_name, velocity)
-            await self._check_temperature_limits(motor_name)
+        for motor_name_str, motor_command in commands.motors.items():
+            try:
+                motor_name = MotorName(motor_name_str)
+                velocity = motor_command.velocity_rpm
+                await self._check_velocity_limits(motor_name, velocity)
+                await self._check_temperature_limits(motor_name)
+            except ValueError:
+                raise SafetyViolationError(
+                    f"Invalid motor name: {motor_name_str}",
+                    "invalid_motor_name"
+                )
             await self._check_operation_time_limits(motor_name, velocity)
         
         # Check for simultaneous motor conflicts

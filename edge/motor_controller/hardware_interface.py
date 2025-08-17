@@ -107,7 +107,7 @@ class HardwareInterface:
             MotorDriverError: If motor driver communication fails
         """
         try:
-            self.logger.debug(f"Executing motor commands: {commands.session_id}")
+            self.logger.debug(f"Executing motor commands: epoch {commands.epoch}")
             
             # Validate commands through safety controller
             await self.safety_controller.validate_motor_commands(commands)

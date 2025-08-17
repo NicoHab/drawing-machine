@@ -136,19 +136,12 @@ class MotorCommandGenerator:
         velocity_rpm = max(0, base_rpm + price_factor)
         
         # Market condition affects direction
-        direction = MotorDirection.CLOCKWISE if data.market_condition in [MarketCondition.BULL, MarketCondition.VOLATILE] else MotorDirection.COUNTER_CLOCKWISE
+        market_condition = data.get_market_condition()
+        direction = MotorDirection.CLOCKWISE if market_condition in [MarketCondition.BULL, MarketCondition.VOLATILE] else MotorDirection.COUNTER_CLOCKWISE
         
         return SingleMotorCommand(
-            motor_name=MotorName.CANVAS,
             velocity_rpm=velocity_rpm,
             direction=direction,
-            priority="high",
-            metadata={
-                "source_metric": "eth_price_usd",
-                "source_value": data.eth_price_usd,
-                "price_factor": price_factor,
-                "market_condition": data.market_condition.value,
-            }
         )
     
     async def _generate_pen_brush_command(self, data: EthereumDataSnapshot) -> SingleMotorCommand:
@@ -161,26 +154,19 @@ class MotorCommandGenerator:
         velocity_rpm = base_rpm + gas_factor
         
         # Network activity affects direction
-        direction = MotorDirection.CLOCKWISE if data.activity_level in [ActivityLevel.HIGH, ActivityLevel.EXTREME] else MotorDirection.COUNTER_CLOCKWISE
+        activity_level = data.get_activity_level()
+        direction = MotorDirection.CLOCKWISE if activity_level in [ActivityLevel.HIGH, ActivityLevel.EXTREME] else MotorDirection.COUNTER_CLOCKWISE
         
         return SingleMotorCommand(
-            motor_name=MotorName.PEN_BRUSH,
             velocity_rpm=velocity_rpm,
             direction=direction,
-            priority="medium",
-            metadata={
-                "source_metric": "gas_price_gwei",
-                "source_value": data.gas_price_gwei,
-                "gas_factor": gas_factor,
-                "activity_level": data.activity_level.value,
-            }
         )
     
     async def _generate_color_depth_command(self, data: EthereumDataSnapshot) -> SingleMotorCommand:
         """Generate color depth motor command based on network congestion."""
         # Map network congestion to color intensity
         # Higher congestion = deeper colors
-        congestion_factor = data.network_congestion_percent * self.config["color_depth_congestion_sensitivity"]
+        congestion_factor = data.blob_space_utilization_percent * self.config["color_depth_congestion_sensitivity"]
         base_rpm = self.config["color_depth_baseline_rpm"]
         
         velocity_rpm = base_rpm + (congestion_factor / 10.0)  # Scale down congestion impact
@@ -189,42 +175,25 @@ class MotorCommandGenerator:
         direction = MotorDirection.CLOCKWISE
         
         return SingleMotorCommand(
-            motor_name=MotorName.PEN_COLOR_DEPTH,
             velocity_rpm=velocity_rpm,
             direction=direction,
-            priority="medium",
-            metadata={
-                "source_metric": "network_congestion_percent",
-                "source_value": data.network_congestion_percent,
-                "congestion_factor": congestion_factor,
-                "pending_transactions": data.pending_transactions,
-            }
         )
     
     async def _generate_pen_elevation_command(self, data: EthereumDataSnapshot) -> SingleMotorCommand:
         """Generate pen elevation motor command based on staking metrics."""
         # Map ETH staking percentage to pen height
         # Higher staking = higher pen elevation
-        staking_factor = data.eth_staked_percent * self.config["pen_elevation_staking_sensitivity"]
+        staking_factor = data.block_fullness_percent * self.config["pen_elevation_staking_sensitivity"]
         base_rpm = self.config["pen_elevation_baseline_rpm"]
         
         velocity_rpm = base_rpm + (staking_factor / 10.0)  # Scale down staking impact
         
         # Beacon chain participation affects direction
-        direction = MotorDirection.CLOCKWISE if data.beacon_participation_rate > 95.0 else MotorDirection.COUNTER_CLOCKWISE
+        direction = MotorDirection.CLOCKWISE if data.block_fullness_percent > 80.0 else MotorDirection.COUNTER_CLOCKWISE
         
         return SingleMotorCommand(
-            motor_name=MotorName.PEN_ELEVATION,
             velocity_rpm=velocity_rpm,
             direction=direction,
-            priority="low",
-            metadata={
-                "source_metric": "eth_staked_percent",
-                "source_value": data.eth_staked_percent,
-                "staking_factor": staking_factor,
-                "participation_rate": data.beacon_participation_rate,
-                "validator_count": data.validator_count,
-            }
         )
     
     def _apply_safety_limits(self, motors: Dict[str, SingleMotorCommand]) -> None:
@@ -253,8 +222,8 @@ class MotorCommandGenerator:
             "generation_timestamp": datetime.now().timestamp(),
             "algorithm_version": "1.0",
             "data_quality_score": data.data_quality_score,
-            "market_condition": data.market_condition.value,
-            "activity_level": data.activity_level.value,
+            "market_condition": data.get_market_condition().value,
+            "activity_level": data.get_activity_level().value,
             "price_range": self._classify_price_range(data.eth_price_usd),
             "gas_range": self._classify_gas_range(data.gas_price_gwei),
             "config_used": self.config.copy(),
