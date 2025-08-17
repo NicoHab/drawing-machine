@@ -8,7 +8,7 @@ to specific motor control parameters in the drawing system.
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Any
 
 from pydantic import BaseModel, Field, field_validator, computed_field
 
@@ -73,12 +73,12 @@ class ApiResponseTimes(BaseModel):
         description="Beacon Chain API response time in milliseconds (0-30000)",
     )
 
-    @computed_field
+    @property
     def average_response_time(self) -> float:
         """Calculate average response time across all APIs."""
         return (self.coinbase_ms + self.ethereum_rpc_ms + self.beacon_chain_ms) / 3
 
-    @computed_field
+    @property
     def is_healthy(self) -> bool:
         """Check if all API response times are within healthy thresholds (< 5000ms)."""
         return all(
@@ -87,7 +87,7 @@ class ApiResponseTimes(BaseModel):
         )
 
     @classmethod
-    def model_validate_json_safe(cls, json_data):
+    def model_validate_json_safe(cls, json_data: Union[str, dict]) -> "ApiResponseTimes":
         """Safe JSON validation that excludes computed fields."""
         if isinstance(json_data, str):
             import json as std_json
@@ -138,7 +138,7 @@ class DataQuality(BaseModel):
         ..., ge=0.0, le=1.0, description="Overall data quality score from 0.0 to 1.0"
     )
 
-    @computed_field
+    @property
     def freshness_score(self) -> float:
         """Calculate freshness score based on boolean freshness flags."""
         fresh_count = sum(
@@ -151,7 +151,7 @@ class DataQuality(BaseModel):
         )
         return fresh_count / 4.0
 
-    @computed_field
+    @property
     def is_acceptable_quality(self) -> bool:
         """Check if overall data quality meets minimum threshold (> 0.7)."""
         return self.overall_quality_score > 0.7
@@ -250,12 +250,12 @@ class EthereumDataSnapshot(BaseModel):
             )
         return v
 
-    @computed_field
+    @property
     def datetime_iso(self) -> str:
         """Convert timestamp to ISO format datetime string."""
         return datetime.fromtimestamp(self.timestamp).isoformat()
 
-    @computed_field
+    @property
     def is_high_activity_epoch(self) -> bool:
         """
         Determine if current epoch represents high network activity.
@@ -346,9 +346,9 @@ class EthereumDataSnapshot(BaseModel):
             bool: True if data meets quality thresholds for motor control
         """
         return (
-            self.data_quality.is_acceptable_quality()
-            and self.data_quality.freshness_score() >= 0.75
-            and self.api_response_times.is_healthy()
+            self.data_quality.is_acceptable_quality
+            and self.data_quality.freshness_score >= 0.75
+            and self.api_response_times.is_healthy
         )
 
     model_config = {

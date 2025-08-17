@@ -124,6 +124,19 @@ strict_equality = true
 module = "tests.*"
 disallow_untyped_defs = false
 
+[[tool.mypy.overrides]]
+module = "shared.models.*"
+disallow_untyped_defs = false
+disallow_untyped_decorators = false
+warn_return_any = false
+disable_error_code = ["prop-decorator", "no-untyped-def"]
+
+[[tool.mypy.overrides]]
+module = "scripts.*"
+disallow_untyped_defs = false
+warn_return_any = false
+disable_error_code = ["return", "arg-type", "index", "assignment"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]

@@ -40,7 +40,7 @@ class GitHubRepoConfig:
     auto_init: bool = False
     gitignore_template: Optional[str] = None
     license_template: str = "mit"
-    topics: List[str] = None
+    topics: Optional[List[str]] = None
     has_issues: bool = True
     has_projects: bool = True
     has_wiki: bool = True
@@ -60,7 +60,7 @@ class DrawingMachineGitHubSetup:
     and TDD methodology enforcement configuration.
     """
 
-    def __init__(self, project_root: Path = None):
+    def __init__(self, project_root: Optional[Path] = None) -> None:
         """Initialize GitHub setup manager."""
         self.project_root = project_root or Path.cwd()
         self.git_token = os.environ.get("GITHUB_TOKEN")
@@ -1064,8 +1064,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
             headers = {"Authorization": f"token {self.git_token}"}
             response = requests.get("https://api.github.com/user", headers=headers)
             if response.status_code == 200:
-                return response.json()["login"]
-        except:
+                login_data = response.json()
+                return str(login_data["login"])
+        except Exception:
             pass
         return "username"
 
@@ -1482,7 +1483,7 @@ Any specific areas you'd like reviewers to focus on?
             return True
 
 
-def main():
+def main() -> None:
     """Main entry point for GitHub repository setup."""
     parser = argparse.ArgumentParser(
         description="Setup GitHub repository for Drawing Machine TDD infrastructure",

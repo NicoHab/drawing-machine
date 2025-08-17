@@ -60,6 +60,7 @@ class PipelineAuthority:
     rollback_capability: bool = False
     quality_gates_count: int = 0
     success_criteria_enforced: bool = False
+    tdd_integration: bool = False
 
 
 @dataclass
@@ -80,7 +81,7 @@ class TrunkBasedDevelopmentValidator:
     with deployment pipeline as quality gatekeeper.
     """
 
-    def __init__(self, project_root: Path = None):
+    def __init__(self, project_root: Optional[Path] = None) -> None:
         """Initialize trunk-based development validator."""
         self.project_root = project_root or Path.cwd()
         self.github_token = os.environ.get("GITHUB_TOKEN")
@@ -303,8 +304,9 @@ class TrunkBasedDevelopmentValidator:
             headers = {"Authorization": f"token {self.github_token}"}
             response = requests.get("https://api.github.com/user", headers=headers)
             if response.status_code == 200:
-                return response.json()["login"]
-        except:
+                login_data = response.json()
+                return str(login_data["login"])
+        except Exception:
             pass
         return "unknown"
 
@@ -577,9 +579,10 @@ class TrunkBasedDevelopmentValidator:
         for pattern in flag_patterns:
             matches = list(self.project_root.rglob(pattern))
             if matches:
-                feature_flags["configuration_files"].extend(
-                    [str(m.relative_to(self.project_root)) for m in matches]
-                )
+                config_files = feature_flags.get("configuration_files", [])
+                if isinstance(config_files, list):
+                    config_files.extend([str(m.relative_to(self.project_root)) for m in matches])
+                    feature_flags["configuration_files"] = config_files
                 feature_flags["implementation_found"] = True
 
         # Look for feature flag usage in code
@@ -600,8 +603,10 @@ class TrunkBasedDevelopmentValidator:
                 for keyword in flag_keywords:
                     if keyword in content:
                         rel_path = str(code_file.relative_to(self.project_root))
-                        if rel_path not in feature_flags["integration_points"]:
-                            feature_flags["integration_points"].append(rel_path)
+                        integration_points = feature_flags.get("integration_points", [])
+                        if isinstance(integration_points, list) and rel_path not in integration_points:
+                            integration_points.append(rel_path)
+                            feature_flags["integration_points"] = integration_points
                             feature_flags["implementation_found"] = True
 
             except Exception:
@@ -1150,7 +1155,7 @@ class TrunkBasedDevelopmentValidator:
         )
 
 
-def main():
+def main() -> None:
     """Main entry point for trunk-based development validation."""
     parser = argparse.ArgumentParser(
         description="Validate Drawing Machine TDD infrastructure for trunk-based development",
