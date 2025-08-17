@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # Development Database (separate from your existing postgres)
+  dev_postgres:
+    image: postgres:15
+    container_name: drawing_dev_postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=drawing_machine_dev
+      - POSTGRES_USER=dev_user
+      - POSTGRES_PASSWORD=dev_password
+    volumes:
+      - dev_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Redis for development caching
+  redis:
+    image: redis:7-alpine
+    container_name: drawing_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  dev_postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: drawing-machine_default
+    external: true

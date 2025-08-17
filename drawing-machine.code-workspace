@@ -1,0 +1,388 @@
+{
+  "folders": [
+    {
+      "name": "🎯 Drawing Machine (Root)",
+      "path": "."
+    },
+    {
+      "name": "⚙️ Edge Services", 
+      "path": "./edge"
+    },
+    {
+      "name": "☁️ Cloud Services",
+      "path": "./cloud"
+    },
+    {
+      "name": "🔗 Shared Libraries",
+      "path": "./shared"
+    },
+    {
+      "name": "🎨 Frontend (Vue.js)",
+      "path": "./frontend"
+    },
+    {
+      "name": "🧪 Tests",
+      "path": "./tests"
+    },
+    {
+      "name": "📋 Configuration",
+      "path": "./config"
+    },
+    {
+      "name": "🐳 Docker & Tools",
+      "path": "./tools"
+    }
+  ],
+  "settings": {
+    // ===== PYTHON CONFIGURATION =====
+    "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.typeCheckingMode": "strict",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.includeFileSpecs": [
+      "edge/**/*.py",
+      "cloud/**/*.py", 
+      "shared/**/*.py",
+      "tests/**/*.py"
+    ],
+    "python.analysis.extraPaths": [
+      "./shared",
+      "./edge", 
+      "./cloud"
+    ],
+    "python.envFile": "${workspaceFolder}/.env.development",
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.memory.keepLibraryAst": true,
+
+    // ===== PYTHON FORMATTING & LINTING =====
+    "python.formatting.provider": "black",
+    "[python]": {
+      "editor.formatOnSave": true,
+      "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "black-formatter.args": [
+      "--line-length=88",
+      "--target-version=py311"
+    ],
+    "ruff.enable": true,
+    "ruff.organizeImports": true,
+    "ruff.fixAll": true,
+    "ruff.args": [
+      "--config=pyproject.toml"
+    ],
+    "mypy-type-checker.args": [
+      "--config-file=pyproject.toml",
+      "--show-error-codes",
+      "--strict"
+    ],
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+
+    // ===== PYTHON TESTING =====
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+      "tests",
+      "-v",
+      "--tb=short"
+    ],
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+
+    // ===== VUE.JS & FRONTEND CONFIGURATION =====
+    "vue.codeActions.savingTimeLimit": 5000,
+    "vue.complete.casing.tags": "kebab",
+    "vue.complete.casing.props": "camel",
+    "vue.format.enable": true,
+    "vue.server.hybridMode": true,
+    "typescript.preferences.includePackageJsonAutoImports": "auto",
+    "typescript.suggest.autoImports": true,
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "typescript.suggest.includeCompletionsForModuleExports": true,
+    "javascript.suggest.includeCompletionsForModuleExports": true,
+    
+    // Vue & TypeScript File Formatters
+    "[vue]": {
+      "editor.defaultFormatter": "Vue.volar",
+      "editor.formatOnSave": true,
+      "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit",
+        "source.organizeImports": "explicit"
+      }
+    },
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true
+    },
+    "[javascript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode",
+      "editor.formatOnSave": true
+    },
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[html]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[css]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    
+    // ===== TAILWIND CSS CONFIGURATION =====
+    "tailwindCSS.includeLanguages": {
+      "vue": "html",
+      "vue-html": "html"
+    },
+    "tailwindCSS.experimental.classRegex": [
+      "class:\\s*?[\"'`]([^\"'`]*).*?[\"'`]",
+      "className:\\s*?[\"'`]([^\"'`]*).*?[\"'`]",
+      ":class=\"([^\"]*)\""
+    ],
+    "tailwindCSS.emmetCompletions": true,
+    
+    // ===== PRETTIER CONFIGURATION =====
+    "prettier.configPath": "./frontend/.prettierrc",
+    "prettier.ignorePath": "./frontend/.prettierignore",
+
+    // ===== DOCKER CONFIGURATION =====
+    "docker.showStartPage": false,
+    "docker.defaultRegistryPath": "",
+    "docker.imageBuildContextPath": "${workspaceFolder}",
+    "docker.dockerodeOptions": {
+      "socketPath": "\\\\.\\pipe\\docker_engine"
+    },
+    "docker.commands.build": "${containerCommand} build .",
+    "docker.commands.run": "${containerCommand} run --rm -it ${tag}",
+    "docker.dockerComposeDetached": true,
+    
+    // Container Development
+    "remote.containers.defaultExtensions": [
+      "ms-python.python",
+      "ms-python.black-formatter",
+      "charliermarsh.ruff"
+    ],
+    "remote.containers.forwardPorts": [5173, 8080, 8081, 8082, 9090, 3000],
+    "remote.containers.portsAttributes": {
+      "5173": {
+        "label": "Vue.js Dev Server",
+        "onAutoForward": "openBrowser"
+      },
+      "8080": {
+        "label": "Cloud Orchestrator API",
+        "onAutoForward": "silent"
+      },
+      "8081": {
+        "label": "WebSocket API",
+        "onAutoForward": "silent"
+      },
+      "8082": {
+        "label": "Motor Controller API", 
+        "onAutoForward": "silent"
+      },
+      "9090": {
+        "label": "Prometheus",
+        "onAutoForward": "openBrowser"
+      },
+      "3000": {
+        "label": "Grafana",
+        "onAutoForward": "openBrowser"
+      }
+    },
+
+    // ===== EDITOR CONFIGURATION =====
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit",
+      "source.fixAll.ruff": "explicit"
+    },
+    "editor.rulers": [88, 120],
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    
+    // ===== SNIPPET CONFIGURATION - IMPORTANT! =====
+    "editor.snippetSuggestions": "top",
+    "editor.suggest.snippetsPreventQuickSuggestions": false,
+    "editor.suggest.showSnippets": true,
+    "editor.suggest.localityBonus": true,
+    "editor.suggest.showWords": false,
+    "editor.wordBasedSuggestions": "off",
+
+    // ===== FILE ASSOCIATIONS =====
+    "files.associations": {
+      "*.yaml": "yaml",
+      "*.yml": "yaml",
+      "docker-compose*.yml": "yaml",
+      "Dockerfile*": "dockerfile",
+      ".env*": "properties",
+      "*.vue": "vue",
+      "tailwind.config.js": "javascript",
+      "vite.config.ts": "typescript",
+      "motor_mappings.yaml": "yaml",
+      "api_endpoints.yaml": "yaml",
+      "logging_config.yaml": "yaml"
+    },
+
+    // ===== FILE EXPLORER SETTINGS =====
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.expand": false,
+    "explorer.fileNesting.patterns": {
+      "*.ts": "${capture}.js",
+      "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
+      "*.jsx": "${capture}.js",
+      "*.tsx": "${capture}.ts",
+      "tsconfig.json": "tsconfig.*.json",
+      "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml",
+      "docker-compose.yml": "docker-compose*.yml, Dockerfile*",
+      ".env": ".env.*",
+      "pyproject.toml": "poetry.lock, requirements*.txt"
+    },
+
+    // ===== TERMINAL CONFIGURATION =====
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.env.windows": {
+      "PYTHONPATH": "${workspaceFolder}\\shared;${workspaceFolder}\\edge;${workspaceFolder}\\cloud",
+      "DRAWING_MACHINE_ENV": "development",
+      "COMPOSE_PROJECT_NAME": "drawing-machine"
+    },
+    "terminal.integrated.shellIntegration.enabled": true,
+
+    // ===== SEARCH AND FILE WATCHING =====
+    "search.exclude": {
+      "**/.venv": true,
+      "**/node_modules": true,
+      "**/.git": true,
+      "**/dist": true,
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/htmlcov": true,
+      "**/.nuxt": true,
+      "**/.output": true,
+      "**/build": true
+    },
+    "files.watcherExclude": {
+      "**/.venv/**": true,
+      "**/node_modules/**": true,
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/dist/**": true,
+      "**/build/**": true,
+      "**/__pycache__/**": true,
+      "**/htmlcov/**": true
+    },
+
+    // ===== EMMET CONFIGURATION =====
+    "emmet.includeLanguages": {
+      "vue-html": "html",
+      "vue": "html"
+    },
+    "emmet.syntaxProfiles": {
+      "vue-html": "html",
+      "vue": "html"
+    },
+
+    // ===== DEBUG CONFIGURATION =====
+    "python.debug.justMyCode": false,
+    "python.debug.console": "integratedTerminal",
+    "python.debug.autoReload": {
+      "enable": true
+    },
+
+    // ===== DRAWING MACHINE SPECIFIC SETTINGS =====
+    "liveServer.settings.root": "/frontend/dist",
+    "liveServer.settings.CustomBrowser": "chrome"
+  },
+  
+  "extensions": {
+    "recommendations": [
+      // Python Development
+      "ms-python.python",
+      "ms-python.black-formatter", 
+      "charliermarsh.ruff",
+      "ms-python.mypy-type-checker",
+      "ms-python.pylint",
+      
+      // Vue.js & Frontend
+      "Vue.volar",
+      "Vue.vscode-typescript-vue-plugin",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      
+      // Docker & DevOps
+      "ms-azuretools.vscode-docker",
+      "ms-vscode-remote.remote-containers",
+      
+      // Utilities
+      "redhat.vscode-yaml",
+      "ms-vscode.vscode-json",
+      "rangav.vscode-thunder-client",
+      "alexcvzz.vscode-sqlite",
+      "ms-vscode.powershell",
+      
+      // Git & Version Control
+      "eamodio.gitlens",
+      "mhutchie.git-graph"
+    ]
+  },
+  
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Poetry: Install Dependencies",
+        "type": "shell",
+        "command": "poetry",
+        "args": ["install"],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Config: Validate All",
+        "type": "shell", 
+        "command": "poetry",
+        "args": ["run", "python", "config/config_manager.py", "validate"],
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always"
+        }
+      },
+      {
+        "label": "Docker: Start Development Services",
+        "type": "shell",
+        "command": "docker-compose",
+        "args": ["-f", "docker-compose.dev.yml", "up", "-d"],
+        "group": "build"
+      },
+      {
+        "label": "Tests: Run All Unit Tests",
+        "type": "shell",
+        "command": "poetry",
+        "args": ["run", "pytest", "tests/unit/", "-v", "--cov"],
+        "group": "test"
+      },
+      {
+        "label": "Frontend: Start Dev Server",
+        "type": "shell",
+        "command": "npm", 
+        "args": ["run", "dev"],
+        "options": {
+          "cwd": "${workspaceFolder}/frontend"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "dedicated"
+        },
+        "isBackground": true
+      }
+    ]
+  }
+}

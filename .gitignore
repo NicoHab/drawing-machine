@@ -256,3 +256,15 @@ override_settings.py
 .github_env
 deployment-artifacts/
 pipeline-artifacts/
+# Temporary development files
+debug_helper.py
+test_snippets.py
+test_trigger_file.py
+test_virtual_ports.py
+validate_environment.py
+test.vue
+test_report.json
+nul
+
+# Generated artifacts
+*.log
