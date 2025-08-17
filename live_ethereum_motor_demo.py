@@ -216,7 +216,7 @@ class LiveMotorUI:
         title_frame = ttk.Frame(self.root)
         title_frame.pack(fill="x", pady=10)
         
-        ttk.Label(title_frame, text="🔗 Live Ethereum → Motor Control", 
+        ttk.Label(title_frame, text="Live Ethereum -> Motor Control", 
                  font=("Arial", 16, "bold")).pack()
         
         # Ethereum data display
@@ -417,7 +417,7 @@ def main():
     )
     
     print("\n" + "="*60)
-    print("LIVE ETHEREUM → MOTOR CONTROL DEMO")
+    print("LIVE ETHEREUM -> MOTOR CONTROL DEMO")
     print("="*60)
     print("This demo shows motors responding to REAL Ethereum data!")
     print("- Fetches live ETH price and gas fees from APIs")
