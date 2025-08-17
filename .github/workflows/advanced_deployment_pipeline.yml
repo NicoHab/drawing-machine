@@ -124,7 +124,7 @@ jobs:
 
       - name: Install Dependencies (Parallel Optimization)
         run: |
-          poetry install --no-interaction --no-ansi --only main,dev
+          poetry install --no-interaction --no-ansi
           poetry run pip install pytest-xdist pytest-parallel
 
       # Parallel execution based on validation type
@@ -400,7 +400,7 @@ jobs:
           
           # Install production dependencies
           pip install poetry
-          poetry install --no-interaction --with dev,test
+          poetry install --no-interaction
           
           # Configure environment variables for production-like testing
           cat > .env.test << EOF

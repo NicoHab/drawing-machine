@@ -13,8 +13,6 @@ pydantic = "^2.11.7"
 aiohttp = "^3.12.15"
 web3 = "^7.13.0"
 pyserial = "^3.5"
-pytest = "^8.4.1"
-pytest-asyncio = "^1.1.0"
 black = "^25.1.0"
 ruff = "^0.12.8"
 mypy = "^1.17.1"
@@ -29,12 +27,16 @@ pyyaml = "^6.0.2"
 prometheus-client = "^0.22.1"
 
 [tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-asyncio = "^1.1.0"
 pytest-cov = "^6.2.1"
 pytest-json-report = "^1.5.0"
 pytest-timeout = "^2.4.0"
 pytest-xdist = "^3.8.0"
 pytest-benchmark = "^5.1.0"
 types-PyYAML = "^6.0.12.20241230"
+types-requests = "^2.32.4.20250809"
+types-colorama = "^0.4.15.20240311"
 
 [build-system]
 requires = ["poetry-core"]
