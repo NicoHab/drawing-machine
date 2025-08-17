@@ -13,54 +13,53 @@ import uuid
 
 class EthereumDataProcessorError(Exception):
     """Custom exception for EthereumDataProcessor errors."""
+
     pass
 
 
 class EthereumDataProcessor(BaseModel):
     """
     EthereumDataProcessor implementation following Drawing Machine patterns.
-    
+
     Minimal implementation to pass TDD tests.
     Expand based on test requirements.
     """
-    
+
     # Basic fields - expand based on test requirements
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
-    
+
     @computed_field
     @property
     def created_at(self) -> str:
         """ISO timestamp of creation."""
         return datetime.fromtimestamp(self.timestamp).isoformat()
-    
+
     @classmethod
     def model_validate_json_safe(cls, json_data):
         """Safe JSON validation that excludes computed fields."""
         if isinstance(json_data, str):
             import json as std_json
+
             data = std_json.loads(json_data)
         else:
             data = json_data
-        
+
         computed_fields = {"created_at"}
         filtered_data = {k: v for k, v in data.items() if k not in computed_fields}
         return cls.model_validate(filtered_data)
-    
+
     def model_dump_json_safe(self, **kwargs):
         """Safe JSON dump that excludes computed fields."""
         exclude_computed = {"created_at"}
-        exclude = kwargs.get('exclude', set())
+        exclude = kwargs.get("exclude", set())
         if isinstance(exclude, set):
             exclude = exclude.union(exclude_computed)
         else:
             exclude = exclude_computed
         return self.model_dump_json(exclude=exclude, **kwargs)
-    
-    model_config = {
-        "validate_assignment": True,
-        "extra": "forbid"
-    }
+
+    model_config = {"validate_assignment": True, "extra": "forbid"}
 
 
 # Add additional classes and functions based on test requirements
