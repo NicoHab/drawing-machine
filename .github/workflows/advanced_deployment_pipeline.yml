@@ -282,7 +282,7 @@ jobs:
           fi
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: matrix.validation-type == 'unit-tests'
         with:
           name: commit-stage-artifacts-${{ matrix.python-version }}
@@ -369,7 +369,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Commit Stage Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: commit-stage-artifacts-3.11
           path: artifacts/
@@ -640,7 +640,7 @@ jobs:
           fi
 
       - name: Upload Acceptance Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: acceptance-stage-artifacts
@@ -689,7 +689,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Acceptance Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: acceptance-stage-artifacts
           path: acceptance-artifacts/
@@ -1038,7 +1038,7 @@ jobs:
           echo "✅ Deployment report generated"
 
       - name: Upload Production Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: production-stage-artifacts-${{ matrix.environment }}
@@ -1173,7 +1173,7 @@ jobs:
           echo "✅ Performance dashboard data generated"
 
       - name: Upload Pipeline Metrics
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: pipeline-metrics
