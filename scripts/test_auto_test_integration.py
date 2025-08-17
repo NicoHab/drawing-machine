@@ -13,7 +13,7 @@ from pathlib import Path
 from auto_test_runner import FileWatcher, TestExecutor, FileChangeEvent
 
 
-def test_test_executor():
+def test_test_executor() -> bool:
     """Test TestExecutor functionality independently."""
     print("Testing TestExecutor functionality...")
 
@@ -58,7 +58,7 @@ def test_test_executor():
     return True
 
 
-def test_filewatcher_with_tests():
+def test_filewatcher_with_tests() -> bool:
     """Test FileWatcher with auto-test functionality enabled."""
     print("\nTesting FileWatcher with automatic test execution...")
 
@@ -76,7 +76,7 @@ def test_filewatcher_with_tests():
     # Mock the test execution to avoid long-running tests
     original_trigger = watcher.trigger_tests
 
-    def mock_trigger_tests(event):
+    def mock_trigger_tests(event: FileChangeEvent) -> bool:
         print(f"  Mock test trigger for: {event.file_path}")
         if watcher.test_executor:
             test_paths = watcher.test_executor.determine_tests_for_file(event.file_path)
@@ -110,7 +110,7 @@ def test_filewatcher_with_tests():
     return True
 
 
-def test_integration_with_real_files():
+def test_integration_with_real_files() -> bool:
     """Test integration with real file system changes."""
     print("\nTesting integration with real file system changes...")
 
@@ -145,7 +145,7 @@ def test_integration_with_real_files():
         return False
 
 
-def test_command_line_interface():
+def test_command_line_interface() -> bool:
     """Test the command line interface options."""
     print("\nTesting command line interface...")
 
@@ -168,7 +168,7 @@ def test_command_line_interface():
     return True
 
 
-def run_comprehensive_test():
+def run_comprehensive_test() -> bool:
     """Run all integration tests."""
     print("=" * 60)
     print("AUTO TEST RUNNER - COMPREHENSIVE INTEGRATION TEST")
@@ -217,7 +217,7 @@ def run_comprehensive_test():
     return passed == total
 
 
-def demo_complete_workflow():
+def demo_complete_workflow() -> None:
     """Demonstrate the complete auto-test workflow."""
     print("\n" + "=" * 60)
     print("COMPLETE AUTO-TEST WORKFLOW DEMONSTRATION")

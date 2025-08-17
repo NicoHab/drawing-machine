@@ -32,14 +32,18 @@ try:
     init(autoreset=True)
 except ImportError:
     # Fallback if colorama not available
-    class Fore:
+    class _ForeColors:
         GREEN = YELLOW = RED = CYAN = BLUE = MAGENTA = ""
 
-    class Style:
+    class _StyleColors:
         DIM = RESET_ALL = ""
 
-    class Back:
+    class _BackColors:
         BLUE = ""
+    
+    Fore = _ForeColors()
+    Style = _StyleColors() 
+    Back = _BackColors()
 
 
 @dataclass

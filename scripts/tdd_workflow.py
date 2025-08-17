@@ -225,7 +225,7 @@ class TestFirstWorkflow:
         """
         self.current_phase = WorkflowPhase.VALIDATION
 
-        validation_results = {
+        validation_results: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "component": spec.name,
             "criteria": {},
@@ -637,7 +637,7 @@ class {class_name}(BaseModel):
                 pass
         return 0.0
 
-    def _analyze_test_failures(self, result: TestSuiteResult):
+    def _analyze_test_failures(self, result: TestSuiteResult) -> None:
         """Analyze test failures and provide suggestions."""
         if not result.test_results:
             return
@@ -688,7 +688,7 @@ class {class_name}(BaseModel):
         # For now, return True as placeholder
         return True
 
-    def _generate_test_report(self, result: TestSuiteResult):
+    def _generate_test_report(self, result: TestSuiteResult) -> None:
         """Generate detailed test execution report."""
         report = {
             "session_id": self.session_id,
@@ -709,7 +709,7 @@ class {class_name}(BaseModel):
 
         print(f"Test report saved: {report_file}")
 
-    def _save_validation_report(self, validation_results: Dict[str, Any]):
+    def _save_validation_report(self, validation_results: Dict[str, Any]) -> None:
         """Save validation results to file."""
         report_file = self.reports_directory / f"validation_{self.session_id}.json"
         with open(report_file, "w", encoding="utf-8") as f:
@@ -750,11 +750,11 @@ def create_component_specification(
     name: str,
     description: str,
     requirements: List[str],
-    dependencies: List[str] = None,
-    interfaces: Dict[str, Any] = None,
-    validation_rules: List[str] = None,
-    examples: Dict[str, Any] = None,
-    success_criteria: List[str] = None,
+    dependencies: Optional[List[str]] = None,
+    interfaces: Optional[Dict[str, Any]] = None,
+    validation_rules: Optional[List[str]] = None,
+    examples: Optional[Dict[str, Any]] = None,
+    success_criteria: Optional[List[str]] = None,
 ) -> ComponentSpecification:
     """
     Helper function to create component specifications for TDD workflow.

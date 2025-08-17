@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(python:*)",
-      "Bash(del test_recursion_fix.py)"
+      "Bash(del test_recursion_fix.py)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
