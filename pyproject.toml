@@ -30,6 +30,7 @@ prometheus-client = "^0.22.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest-cov = "^6.2.1"
+pytest-json-report = "^1.5.0"
 
 [build-system]
 requires = ["poetry-core"]
