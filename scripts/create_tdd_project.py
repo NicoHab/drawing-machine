@@ -498,6 +498,735 @@ class TestCalculatorIntegration:
 
         print(f"{Fore.BLUE}Generated comprehensive documentation")
 
+    def _generate_tdd_guide(self, config: ProjectConfig) -> str:
+        """
+        Generate TDD workflow documentation.
+        
+        Args:
+            config: Project configuration
+            
+        Returns:
+            TDD workflow documentation content
+        """
+        return f'''# TDD Workflow Guide for {config.name}
+
+## Overview
+
+This guide outlines the Test-Driven Development (TDD) workflow based on the proven Drawing Machine methodology that achieved 97.6% test success rate (40/41 tests passing).
+
+## TDD Cycle
+
+### 1. Red Phase - Write a Failing Test
+
+Write a test that captures the desired functionality before implementing it:
+
+```python
+def test_new_feature():
+    # Arrange
+    setup_data = create_test_data()
+    
+    # Act
+    result = new_feature(setup_data)
+    
+    # Assert
+    assert result == expected_outcome
+```
+
+### 2. Green Phase - Make the Test Pass
+
+Implement the minimal code necessary to make the test pass:
+
+```python
+def new_feature(data):
+    # Implement just enough to pass the test
+    return process_data(data)
+```
+
+### 3. Refactor Phase - Improve the Code
+
+Clean up the implementation while keeping tests green:
+
+- Remove duplication
+- Improve naming
+- Extract methods/classes
+- Optimize performance
+
+## Automated Test Execution
+
+This project includes automatic test execution with file watching:
+
+```bash
+# Start the TDD file watcher
+python scripts/auto_test_runner.py
+
+# Run tests manually
+pytest tests/ -v --cov=src
+```
+
+## Testing Patterns
+
+### Unit Tests
+- Test individual functions and methods
+- Mock external dependencies
+- Focus on edge cases and error conditions
+
+### Integration Tests
+- Test component interactions
+- Use real dependencies where appropriate
+- Verify end-to-end workflows
+
+### API Tests (for service projects)
+- Test all endpoints
+- Verify request/response formats
+- Test error handling and validation
+
+## Test Structure
+
+```python
+class TestFeatureName:
+    \"\"\"Test suite for FeatureName.\"\"\"
+    
+    def setup_method(self):
+        \"\"\"Set up test fixtures.\"\"\"
+        self.fixture = create_test_fixture()
+    
+    def test_happy_path(self):
+        \"\"\"Test the main success scenario.\"\"\"
+        # Test implementation
+        pass
+    
+    def test_edge_case(self):
+        \"\"\"Test boundary conditions.\"\"\"
+        # Test implementation
+        pass
+    
+    def test_error_handling(self):
+        \"\"\"Test error conditions.\"\"\"
+        with pytest.raises(ExpectedException):
+            # Test implementation
+            pass
+```
+
+## Coverage Guidelines
+
+- Maintain {config.coverage_target}% test coverage
+- Focus on business logic coverage
+- Don't chase 100% coverage at the expense of meaningful tests
+- Use coverage reports to identify untested code paths
+
+## Best Practices
+
+### Test Naming
+- Use descriptive test names
+- Follow pattern: `test_what_when_then`
+- Example: `test_user_creation_with_valid_data_returns_user`
+
+### Test Independence
+- Each test should be independent
+- Use setup/teardown methods for test fixtures
+- Avoid test dependencies
+
+### Assertion Quality
+- Use specific assertions
+- Prefer `assert actual == expected` over `assert actual`
+- Include descriptive error messages
+
+### Mock Usage
+- Mock external dependencies
+- Don't mock the system under test
+- Use dependency injection for easier testing
+
+## Debugging Failed Tests
+
+### 1. Read the Error Message
+```bash
+# Run with verbose output
+pytest -v tests/test_failing.py::test_specific_test
+
+# Show local variables on failure
+pytest --tb=long tests/
+```
+
+### 2. Use Debugger
+```python
+import pdb; pdb.set_trace()  # Add to test or code
+pytest --pdb tests/  # Drop to debugger on failure
+```
+
+### 3. Isolate the Problem
+- Run individual tests
+- Check test data and fixtures
+- Verify assumptions about the code
+
+## Continuous Integration
+
+The project includes CI/CD pipeline configuration:
+
+- Tests run automatically on code changes
+- Coverage reports are generated
+- Code quality checks are performed
+- Deployment only happens when all tests pass
+
+## Tools and Commands
+
+### Run All Tests
+```bash
+pytest tests/
+```
+
+### Run with Coverage
+```bash
+pytest --cov=src --cov-report=html tests/
+```
+
+### Run Specific Test File
+```bash
+pytest tests/unit/test_models.py -v
+```
+
+### Run Tests Matching Pattern
+```bash
+pytest -k "test_user" tests/
+```
+
+### Watch for Changes (Auto-run tests)
+```bash
+python scripts/auto_test_runner.py
+```
+
+### Code Quality
+```bash
+# Format code
+black src/ tests/
+
+# Check imports
+isort src/ tests/
+
+# Type checking
+mypy src/
+
+# Linting
+flake8 src/ tests/
+```
+
+## Project-Specific Guidelines
+
+Generated with Drawing Machine TDD methodology for {config.name}.
+
+### Template Type: {config.template_type}
+
+{self._get_template_specific_guidance(config)}
+
+## Resources
+
+- [pytest Documentation](https://docs.pytest.org/)
+- [Coverage.py Documentation](https://coverage.readthedocs.io/)
+- [Pydantic Testing Guide](https://docs.pydantic.dev/latest/concepts/testing/)
+- [FastAPI Testing](https://fastapi.tiangolo.com/tutorial/testing/) (for service projects)
+
+## Support
+
+For questions about this TDD setup, refer to:
+- Test examples in the `tests/` directory
+- VS Code tasks for common operations
+- Auto-test runner for continuous feedback
+'''
+
+    def _generate_api_docs(self, config: ProjectConfig) -> str:
+        """
+        Generate API documentation template.
+        
+        Args:
+            config: Project configuration
+            
+        Returns:
+            API documentation content
+        """
+        return f'''# API Documentation for {config.name}
+
+## Overview
+
+This document describes the API endpoints and data models for {config.name}, generated using the Drawing Machine TDD methodology.
+
+## Base URL
+
+```
+http://localhost:8000
+```
+
+## Authentication
+
+{self._get_auth_docs_section(config)}
+
+## Endpoints
+
+### Health Check
+
+#### GET /
+Health check endpoint that returns service status.
+
+**Response:**
+```json
+{{
+  "message": "Welcome to {config.name}",
+  "status": "healthy",
+  "version": "0.1.0"
+}}
+```
+
+#### GET /health
+Detailed health check endpoint for monitoring systems.
+
+**Response:**
+```json
+{{
+  "status": "healthy",
+  "timestamp": "2023-12-07T10:30:00Z"
+}}
+```
+
+### Examples API
+
+#### GET /api/v1/examples
+List examples with pagination and filtering.
+
+**Query Parameters:**
+- `page` (integer, optional): Page number (default: 1)
+- `per_page` (integer, optional): Items per page (default: 10, max: 100)
+- `status` (string, optional): Filter by status (active, inactive, pending)
+
+**Response:**
+```json
+{{
+  "success": true,
+  "message": "Retrieved 10 examples",
+  "data": [
+    {{
+      "id": "uuid",
+      "name": "Example Name",
+      "value": 75.5,
+      "status": "active",
+      "tags": ["tag1", "tag2"],
+      "metadata": {{}},
+      "created_at": "2023-12-07T10:30:00Z"
+    }}
+  ],
+  "total": 100,
+  "page": 1,
+  "per_page": 10,
+  "has_more": true
+}}
+```
+
+#### GET /api/v1/examples/{{id}}
+Get a specific example by ID.
+
+**Path Parameters:**
+- `id` (string): Example unique identifier
+
+**Response:**
+```json
+{{
+  "id": "uuid",
+  "name": "Example Name",
+  "value": 75.5,
+  "status": "active",
+  "tags": ["tag1", "tag2"],
+  "metadata": {{}},
+  "created_at": "2023-12-07T10:30:00Z",
+  "updated_at": null,
+  "is_active": true
+}}
+```
+
+**Error Response (404):**
+```json
+{{
+  "detail": "Example not found"
+}}
+```
+
+#### POST /api/v1/examples
+Create a new example.
+
+**Request Body:**
+```json
+{{
+  "name": "New Example",
+  "value": 50.0,
+  "tags": ["new", "test"],
+  "metadata": {{
+    "category": "test",
+    "priority": 1
+  }}
+}}
+```
+
+**Response (201):**
+```json
+{{
+  "id": "uuid",
+  "name": "New Example",
+  "value": 50.0,
+  "status": "active",
+  "tags": ["new", "test"],
+  "metadata": {{
+    "category": "test",
+    "priority": 1
+  }},
+  "created_at": "2023-12-07T10:30:00Z",
+  "updated_at": null,
+  "is_active": true
+}}
+```
+
+#### PUT /api/v1/examples/{{id}}
+Update an existing example.
+
+**Path Parameters:**
+- `id` (string): Example unique identifier
+
+**Request Body:**
+```json
+{{
+  "name": "Updated Example Name",
+  "value": 80.0,
+  "status": "pending"
+}}
+```
+
+**Response:**
+```json
+{{
+  "id": "uuid",
+  "name": "Updated Example Name",
+  "value": 80.0,
+  "status": "pending",
+  "tags": ["new", "test"],
+  "metadata": {{
+    "category": "test",
+    "priority": 1
+  }},
+  "created_at": "2023-12-07T10:30:00Z",
+  "updated_at": "2023-12-07T11:00:00Z",
+  "is_active": true
+}}
+```
+
+#### DELETE /api/v1/examples/{{id}}
+Delete an example.
+
+**Path Parameters:**
+- `id` (string): Example unique identifier
+
+**Response:**
+```json
+{{
+  "success": true,
+  "message": "Example uuid deleted successfully"
+}}
+```
+
+#### GET /api/v1/examples/{{id}}/summary
+Get example summary information.
+
+**Path Parameters:**
+- `id` (string): Example unique identifier
+
+**Response:**
+```json
+{{
+  "id": "uuid",
+  "name": "Example Name",
+  "status": "active",
+  "is_active": true,
+  "age_seconds": 3600.0
+}}
+```
+
+## Data Models
+
+### ExampleModel
+
+Main data model for examples.
+
+**Fields:**
+- `id` (string): Unique identifier (auto-generated)
+- `name` (string): Example name (1-100 characters)
+- `description` (string, optional): Description (max 1000 characters)
+- `value` (number): Numeric value (0-100)
+- `status` (string): Status enum (active, inactive, pending)
+- `tags` (array): List of tags (max 10, each max 50 characters)
+- `metadata` (object): Key-value metadata (max 50 entries)
+- `created_at` (datetime): Creation timestamp
+- `updated_at` (datetime, optional): Last update timestamp
+- `is_active` (boolean): Whether the example is active
+
+**Computed Fields:**
+- `display_name`: Formatted display name
+- `age_seconds`: Age in seconds since creation
+- `completion_percentage`: Calculated completion percentage
+
+### ExampleCreateRequest
+
+Request model for creating examples.
+
+**Fields:**
+- `name` (string, required): Example name
+- `value` (number, required): Numeric value
+- `tags` (array, optional): List of tags
+- `metadata` (object, optional): Key-value metadata
+
+### ExampleUpdateRequest
+
+Request model for updating examples.
+
+**Fields:**
+- `name` (string, optional): Updated name
+- `value` (number, optional): Updated value
+- `status` (string, optional): Updated status
+- `tags` (array, optional): Updated tags
+- `metadata` (object, optional): Updated metadata
+
+### APIResponse
+
+Base response model for API operations.
+
+**Fields:**
+- `success` (boolean): Whether the operation succeeded
+- `message` (string): Response message
+- `timestamp` (datetime): Response timestamp
+
+## Error Handling
+
+### HTTP Status Codes
+
+- `200 OK`: Successful GET, PUT operations
+- `201 Created`: Successful POST operations
+- `400 Bad Request`: Invalid request data or business logic errors
+- `404 Not Found`: Resource not found
+- `422 Unprocessable Entity`: Validation errors
+- `500 Internal Server Error`: Server errors
+
+### Error Response Format
+
+```json
+{{
+  "detail": "Error description"
+}}
+```
+
+### Validation Errors (422)
+
+```json
+{{
+  "detail": [
+    {{
+      "loc": ["field_name"],
+      "msg": "Field validation error",
+      "type": "value_error"
+    }}
+  ]
+}}
+```
+
+## Rate Limiting
+
+{self._get_rate_limiting_docs(config)}
+
+## OpenAPI Documentation
+
+Interactive API documentation is available at:
+
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+## Testing
+
+All endpoints are comprehensively tested. Run the test suite:
+
+```bash
+# Run API tests
+pytest tests/api/ -v
+
+# Run with coverage
+pytest tests/api/ --cov=src --cov-report=html
+```
+
+## Examples
+
+### cURL Examples
+
+#### Create an example
+```bash
+curl -X POST "http://localhost:8000/api/v1/examples" \\
+     -H "Content-Type: application/json" \\
+     -d '{{
+       "name": "Test Example",
+       "value": 75.0,
+       "tags": ["test", "api"]
+     }}'
+```
+
+#### Get examples with filtering
+```bash
+curl "http://localhost:8000/api/v1/examples?status=active&page=1&per_page=5"
+```
+
+#### Update an example
+```bash
+curl -X PUT "http://localhost:8000/api/v1/examples/{{id}}" \\
+     -H "Content-Type: application/json" \\
+     -d '{{
+       "name": "Updated Example",
+       "status": "pending"
+     }}'
+```
+
+### Python Client Example
+
+```python
+import httpx
+
+client = httpx.Client(base_url="http://localhost:8000")
+
+# Create example
+response = client.post("/api/v1/examples", json={{
+    "name": "Python Client Example",
+    "value": 85.0,
+    "tags": ["python", "client"]
+}})
+example = response.json()
+
+# Get example
+response = client.get(f"/api/v1/examples/{{example['id']}}")
+retrieved_example = response.json()
+
+# Update example
+response = client.put(f"/api/v1/examples/{{example['id']}}", json={{
+    "status": "pending"
+}})
+updated_example = response.json()
+```
+
+## Development
+
+### Running the API Server
+
+```bash
+# Development mode
+python src/main.py
+
+# Or with uvicorn directly
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Code Generation
+
+This API was generated using the Drawing Machine TDD methodology with:
+- Comprehensive test coverage
+- Pydantic data validation
+- FastAPI best practices
+- Automated documentation generation
+
+## Support
+
+For API support:
+- Check the test files in `tests/api/` for usage examples
+- Refer to the FastAPI documentation
+- Use the interactive docs at `/docs` for testing
+'''
+
+    def _get_template_specific_guidance(self, config: ProjectConfig) -> str:
+        """Get template-specific TDD guidance."""
+        if config.template_type == "service":
+            return """
+### Service-Specific TDD Guidelines
+
+- Test API endpoints with FastAPI TestClient
+- Mock external service dependencies
+- Test request/response serialization
+- Verify error handling and status codes
+- Test middleware and authentication
+"""
+        elif config.template_type == "models":
+            return """
+### Model-Specific TDD Guidelines
+
+- Test Pydantic model validation extensively
+- Verify computed fields work correctly
+- Test JSON serialization/deserialization
+- Check edge cases and constraint violations
+- Test business logic in model methods
+"""
+        elif config.template_type == "integration":
+            return """
+### Integration-Specific TDD Guidelines
+
+- Test component interactions
+- Use real dependencies where possible
+- Test data flow between systems
+- Verify error propagation
+- Test transaction boundaries
+"""
+        else:
+            return """
+### Minimal Project TDD Guidelines
+
+- Start with simple unit tests
+- Focus on core business logic
+- Add integration tests as complexity grows
+- Maintain high test coverage
+- Refactor regularly to keep code clean
+"""
+
+    def _get_auth_docs_section(self, config: ProjectConfig) -> str:
+        """Get authentication documentation section."""
+        if config.template_type == "service":
+            return """
+Currently, this API does not implement authentication. In production, you should add:
+
+- JWT token authentication
+- API key authentication
+- OAuth 2.0 integration
+- Rate limiting per user/API key
+
+Example with JWT:
+```
+Authorization: Bearer <jwt_token>
+```
+"""
+        else:
+            return "Authentication is not implemented in this template. Add as needed for your use case."
+
+    def _get_rate_limiting_docs(self, config: ProjectConfig) -> str:
+        """Get rate limiting documentation."""
+        if config.template_type == "service":
+            return """
+Rate limiting is not currently implemented. Consider adding:
+
+- Per-IP rate limits (e.g., 100 requests/minute)
+- Per-user rate limits for authenticated users
+- Different limits for different endpoint categories
+- Rate limit headers in responses
+
+Example implementation with slowapi:
+```python
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+app.add_exception_handler(429, _rate_limit_exceeded_handler)
+
+@app.get("/api/v1/examples")
+@limiter.limit("10/minute")
+async def list_examples(request: Request):
+    # endpoint implementation
+```
+"""
+        else:
+            return "Rate limiting documentation not applicable for this template type."
+
     def _generate_pyproject_toml(self, config: ProjectConfig) -> str:
         """Generate pyproject.toml with proven dependencies."""
         return f"""[tool.poetry]
