@@ -1,0 +1,241 @@
+# Security Configuration for Drawing Machine
+# Authentication, authorization, and security policies
+
+authentication:
+  # JWT Configuration
+  jwt:
+    algorithm: "HS256"
+    access_token_expire_minutes: 480  # 8 hours
+    refresh_token_expire_days: 7
+    issuer: "drawing-machine-system"
+    audience: "drawing-machine-users"
+    
+  # API Key Authentication (for service-to-service)
+  api_keys:
+    enabled: true
+    header_name: "X-API-Key"
+    key_length: 32
+    rotation_days: 90
+
+  # Session Management
+  sessions:
+    cookie_name: "drawing_session"
+    cookie_secure: true  # Set to false for development
+    cookie_httponly: true
+    cookie_samesite: "strict"
+    session_timeout_minutes: 60
+
+authorization:
+  # Role-Based Access Control
+  roles:
+    admin:
+      permissions:
+        - "system:manage"
+        - "drawing:control"
+        - "motors:emergency_stop"
+        - "config:modify"
+        - "users:manage"
+        - "logs:view"
+        
+    operator:
+      permissions:
+        - "drawing:control"
+        - "motors:manual_control"
+        - "modes:switch"
+        - "offline:manage"
+        - "sessions:view"
+        
+    viewer:
+      permissions:
+        - "drawing:view"
+        - "sessions:view"
+        - "metrics:view"
+        
+    guest:
+      permissions:
+        - "drawing:view"
+
+  # Resource-Based Permissions
+  resources:
+    motor_control:
+      emergency_stop: ["admin", "operator"]
+      manual_control: ["admin", "operator"] 
+      velocity_override: ["admin"]
+      
+    drawing_sessions:
+      start_stop: ["admin", "operator"]
+      view_status: ["admin", "operator", "viewer", "guest"]
+      configure: ["admin"]
+      
+    system_config:
+      view: ["admin", "operator"]
+      modify: ["admin"]
+      
+    offline_drawings:
+      upload: ["admin", "operator"]
+      execute: ["admin", "operator"]
+      view: ["admin", "operator", "viewer"]
+
+# API Security
+api_security:
+  # Rate Limiting
+  rate_limiting:
+    default:
+      requests_per_minute: 60
+      burst_size: 100
+      
+    motor_control:
+      requests_per_minute: 120  # Higher for real-time control
+      burst_size: 200
+      
+    manual_control:
+      requests_per_minute: 300  # Very high for responsive control
+      burst_size: 500
+      
+    authentication:
+      requests_per_minute: 10   # Lower for login attempts
+      burst_size: 20
+
+  # CORS Configuration
+  cors:
+    allow_origins:
+      development:
+        - "http://localhost:3001"
+        - "http://localhost:5173"
+        - "http://127.0.0.1:3001"
+        - "http://127.0.0.1:5173"
+      production:
+        - "https://dashboard.your-domain.com"
+        - "https://control.your-domain.com"
+    
+    allow_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+      - "PATCH"
+    
+    allow_headers:
+      - "Content-Type"
+      - "Authorization"
+      - "X-API-Key"
+      - "X-Requested-With"
+    
+    expose_headers:
+      - "X-Total-Count"
+      - "X-Rate-Limit-Remaining"
+    
+    allow_credentials: true
+    max_age: 3600
+
+  # Input Validation
+  input_validation:
+    motor_velocities:
+      min_rpm: 0
+      max_rpm: 50
+      decimal_places: 2
+      
+    drawing_duration:
+      min_minutes: 1
+      max_minutes: 180
+      
+    api_payload_size:
+      max_bytes: 1048576  # 1MB
+      
+    string_lengths:
+      drawing_name: 100
+      description: 500
+      username: 50
+
+# Data Protection
+data_protection:
+  # Encryption
+  encryption:
+    algorithm: "AES-256-GCM"
+    key_derivation: "PBKDF2"
+    iterations: 100000
+    
+  # Data Retention
+  retention_policies:
+    drawing_sessions:
+      days: 90
+      auto_cleanup: true
+      
+    user_sessions:
+      days: 30
+      auto_cleanup: true
+      
+    api_logs:
+      days: 60
+      auto_cleanup: true
+      
+    motor_telemetry:
+      days: 7
+      auto_cleanup: true
+
+  # Backup Security
+  backup:
+    encryption_enabled: true
+    compression_enabled: true
+    integrity_checking: true
+    
+# Network Security
+network_security:
+  # TLS Configuration
+  tls:
+    min_version: "TLSv1.2"
+    preferred_version: "TLSv1.3"
+    cipher_suites:
+      - "ECDHE-RSA-AES128-GCM-SHA256"
+      - "ECDHE-RSA-AES256-GCM-SHA384"
+      - "ECDHE-RSA-CHACHA20-POLY1305"
+    
+  # Firewall Rules (for production)
+  firewall:
+    allowed_ports:
+      - 8080  # Orchestrator
+      - 8081  # WebSocket
+      - 3001  # Dashboard
+      - 9090  # Prometheus
+      - 3000  # Grafana
+    
+    blocked_ports:
+      - 5432  # PostgreSQL (internal only)
+      - 6379  # Redis (internal only)
+      - 8765  # Motor controller (local only)
+
+# Security Monitoring
+security_monitoring:
+  # Failed Authentication Tracking
+  failed_auth:
+    max_attempts: 5
+    lockout_duration_minutes: 15
+    tracking_window_minutes: 60
+    
+  # Suspicious Activity Detection
+  anomaly_detection:
+    unusual_api_patterns: true
+    rapid_mode_switching: true
+    motor_command_anomalies: true
+    login_from_new_locations: true
+    
+  # Security Alerts
+  alerts:
+    multiple_failed_logins: true
+    emergency_stop_usage: true
+    unauthorized_access_attempts: true
+    configuration_changes: true
+    
+# Development Security Settings
+development:
+  # Relaxed settings for development
+  enforce_https: false
+  cors_allow_all: true
+  debug_endpoints: true
+  mock_authentication: false
+  detailed_error_messages: true
+  
+# Production Security Settings  
+production:
+  # Strict settings fo

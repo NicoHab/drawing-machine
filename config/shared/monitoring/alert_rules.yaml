@@ -1,0 +1,121 @@
+# Prometheus Alert Rules for Drawing Machine
+# Critical system alerts and notifications
+
+groups:
+  - name: drawing_machine_critical
+    rules:
+      - alert: MotorControllerDown
+        expr: up{job="drawing-machine-motor-controller"} == 0
+        for: 10s
+        labels:
+          severity: critical
+          service: motor_controller
+        annotations:
+          summary: "Motor controller service is down"
+          description: "Motor controller has been down for more than 10 seconds"
+
+      - alert: EmergencyStopTriggered
+        expr: increase(emergency_stops_total[1m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+          service: motor_controller
+        annotations:
+          summary: "Emergency stop has been triggered"
+          description: "Emergency stop activated - immediate attention required"
+
+      - alert: MotorCommandFailureRate
+        expr: rate(motor_commands_sent_total{status="failed"}[5m]) > 0.05
+        for: 30s
+        labels:
+          severity: warning
+          service: motor_controller
+        annotations:
+          summary: "High motor command failure rate"
+          description: "Motor command failure rate is {{ $value }} per second"
+
+  - name: drawing_machine_blockchain
+    rules:
+      - alert: BlockchainDataStale
+        expr: (time() - blockchain_data_last_update_timestamp) > 120
+        for: 30s
+        labels:
+          severity: warning
+          service: data_aggregator
+        annotations:
+          summary: "Blockchain data is stale"
+          description: "No blockchain data updates for {{ $value }} seconds"
+
+      - alert: BlockchainAPIFailure
+        expr: rate(blockchain_api_calls_total{status="failed"}[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+          service: data_aggregator
+        annotations:
+          summary: "High blockchain API failure rate"
+          description: "Blockchain API failure rate is {{ $value }} per second"
+
+      - alert: DataQualityLow
+        expr: data_quality_score_current < 0.8
+        for: 2m
+        labels:
+          severity: warning
+          service: data_aggregator
+        annotations:
+          summary: "Low data quality score"
+          description: "Data quality score is {{ $value }}, below threshold of 0.8"
+
+  - name: drawing_machine_system
+    rules:
+      - alert: DrawingSessionFailed
+        expr: increase(drawing_sessions_total{status="failed"}[10m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+          service: orchestrator
+        annotations:
+          summary: "Drawing session failed"
+          description: "A drawing session has failed to complete"
+
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes / 1024 / 1024) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High memory usage"
+          description: "Service {{ $labels.job }} using {{ $value }}MB of memory"
+
+      - alert: ServiceResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "Slow API response times"
+          description: "95th percentile response time is {{ $value }} seconds"
+
+  - name: drawing_machine_manual_control
+    rules:
+      - alert: ManualControlUnresponsive
+        expr: rate(manual_control_actions_total[2m]) == 0 and operational_mode_current == 2
+        for: 30s
+        labels:
+          severity: warning
+          service: manual_control
+        annotations:
+          summary: "Manual control appears unresponsive"
+          description: "No manual control actions detected while in manual mode"
+
+      - alert: FrequentModeSwitch
+        expr: rate(mode_switches_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: info
+          service: orchestrator
+        annotations:
+          summary: "Frequent mode switching detected"
+          description: "Mode switching rate is {{ $value }} per second"

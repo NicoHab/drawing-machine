@@ -1,0 +1,25 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Drawing Machine System",
+    "tags": ["drawing-machine"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Prometheus Up",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      }
+    ],
+    "time": {"from": "now-5m", "to": "now"},
+    "refresh": "5s",
+    "version": 1
+  }
+}

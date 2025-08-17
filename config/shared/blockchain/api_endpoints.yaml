@@ -1,0 +1,116 @@
+# Blockchain API Configuration
+# Based on JSON specification data_configuration section
+
+blockchain_apis:
+  # Ethereum Price Data
+  coinbase_api:
+    name: "Coinbase Pro API"
+    base_url: "https://api.exchange.coinbase.com"
+    endpoints:
+      eth_price: "/products/ETH-USD/ticker"
+    rate_limit:
+      requests_per_second: 10
+      burst_limit: 50
+    timeout_ms: 3000
+    retry_strategy:
+      max_attempts: 3
+      backoff_strategy: "exponential"
+      base_delay_ms: 100
+    fallback_strategy: "use_last_known_price"
+    data_validation:
+      price_range:
+        min: 500
+        max: 10000
+        unit: "USD"
+
+  # Ethereum RPC for Gas Prices and Block Data
+  ethereum_rpc:
+    name: "Ethereum RPC Provider"
+    providers:
+      primary:
+        name: "Infura"
+        url: "https://mainnet.infura.io/v3/${INFURA_PROJECT_ID}"
+        api_key_env: "INFURA_PROJECT_ID"
+      backup:
+        name: "Alchemy"
+        url: "https://eth-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
+        api_key_env: "ALCHEMY_API_KEY"
+      development:
+        name: "Local Development"
+        url: "http://localhost:8545"
+        api_key_env: null
+    methods:
+      gas_price: "eth_gasPrice"
+      latest_block: "eth_getBlockByNumber"
+      block_by_number: "eth_getBlockByNumber"
+    rate_limit:
+      requests_per_second: 100
+      daily_limit: 100000
+    timeout_ms: 4000
+    retry_strategy:
+      max_attempts: 3
+      backoff_strategy: "exponential"
+      base_delay_ms: 200
+    fallback_strategy: "use_baseline_gas_values"
+    data_validation:
+      gas_price_range:
+        min: 1
+        max: 500
+        unit: "gwei"
+
+  # Beacon Chain API for Blob Data
+  beacon_chain_api:
+    name: "Beacon Chain API"
+    base_url: "https://beaconcha.in/api/v1"
+    endpoints:
+      epoch_data: "/epoch/{epoch}"
+      latest_epoch: "/epoch/latest"
+      blob_data: "/epoch/{epoch}/blobs"
+    rate_limit:
+      requests_per_second: 5
+      burst_limit: 20
+    timeout_ms: 5000
+    retry_strategy:
+      max_attempts: 3
+      backoff_strategy: "exponential"
+      base_delay_ms: 300
+    fallback_strategy: "use_historical_average_blob_usage"
+    data_validation:
+      blob_utilization_range:
+        min: 0
+        max: 100
+        unit: "percent"
+
+# API Health Monitoring
+api_monitoring:
+  health_check_interval_seconds: 30
+  failure_threshold: 3
+  recovery_threshold: 2
+  alert_on_failure: true
+  metrics_collection:
+    response_time: true
+    success_rate: true
+    data_quality_score: true
+
+# Data Quality Configuration
+data_quality:
+  freshness_threshold_seconds: 60
+  outlier_detection:
+    enabled: true
+    standard_deviations: 3
+  data_correlation_checks:
+    enabled: true
+    correlation_threshold: 0.7
+
+# Development/Testing Configuration
+development:
+  mock_data:
+    enabled: false
+    eth_price_usd: 2500.00
+    gas_price_gwei: 20.0
+    blob_utilization_percent: 50.0
+    block_fullness_percent: 75.0
+  simulation_mode:
+    enabled: false
+    data_variation_percent: 10
+    update_frequency_seconds: 1.0

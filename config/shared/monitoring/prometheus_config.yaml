@@ -1,0 +1,117 @@
+# Prometheus Configuration for Drawing Machine
+# Metrics collection and monitoring setup
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Drawing Machine Services
+  - job_name: 'drawing-machine-orchestrator'
+    static_configs:
+      - targets: ['localhost:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+
+  - job_name: 'drawing-machine-motor-controller'
+    static_configs:
+      - targets: ['localhost:8765']
+    metrics_path: '/metrics'
+    scrape_interval: 1s
+    scrape_timeout: 1s
+
+  - job_name: 'drawing-machine-data-aggregator'
+    static_configs:
+      - targets: ['localhost:8082']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'drawing-machine-velocity-calculator'
+    static_configs:
+      - targets: ['localhost:8083']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'drawing-machine-user-dashboard'
+    static_configs:
+      - targets: ['localhost:3001']
+    metrics_path: '/api/metrics'
+    scrape_interval: 10s
+
+  - job_name: 'drawing-machine-manual-control'
+    static_configs:
+      - targets: ['localhost:8086']
+    metrics_path: '/metrics'
+    scrape_interval: 2s
+
+  - job_name: 'drawing-machine-offline-drawing'
+    static_configs:
+      - targets: ['localhost:8087']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # System metrics (if node_exporter is installed)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 10s
+
+  # Database metrics (if postgres_exporter is installed)
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['localhost:9187']
+    scrape_interval: 15s
+
+  # Redis metrics (if redis_exporter is installed)
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['localhost:9121']
+    scrape_interval: 15s
+
+# Custom metrics definitions
+# These will be implemented in the Python services
+custom_metrics:
+  counters:
+    - drawing_epochs_completed_total
+    - motor_commands_sent_total
+    - blockchain_api_calls_total
+    - manual_control_actions_total
+    - mode_switches_total
+    - emergency_stops_total
+
+  gauges:
+    - motor_velocity_rpm
+    - eth_price_usd_current
+    - gas_price_gwei_current
+    - blob_utilization_percent_current
+    - block_fullness_percent_current
+    - data_quality_score_current
+    - active_drawing_sessions
+    - operational_mode_current
+
+  histograms:
+    - motor_command_duration_seconds
+    - blockchain_api_response_time_seconds
+    - drawing_epoch_processing_time_seconds
+    - websocket_message_processing_time_seconds
+    - manual_control_response_time_seconds
+
+# Retention and storage
+storage:
+  retention_time: "30d"
+  retention_size: "10GB"

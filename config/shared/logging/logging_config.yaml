@@ -1,0 +1,167 @@
+# Logging Configuration for Drawing Machine
+# Structured logging with different levels and outputs
+
+logging:
+  version: 1
+  disable_existing_loggers: false
+  
+  formatters:
+    standard:
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+    
+    json:
+      format: '{"timestamp": "%(asctime)s", "service": "%(name)s", "level": "%(levelname)s", "message": "%(message)s", "module": "%(module)s", "function": "%(funcName)s", "line": %(lineno)d}'
+      datefmt: "%Y-%m-%dT%H:%M:%S"
+    
+    detailed:
+      format: "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(funcName)s:%(lineno)d - %(message)s"
+      datefmt: "%Y-%m-%d %H:%M:%S"
+
+  handlers:
+    console:
+      class: logging.StreamHandler
+      level: INFO
+      formatter: standard
+      stream: ext://sys.stdout
+    
+    file:
+      class: logging.handlers.RotatingFileHandler
+      level: DEBUG
+      formatter: json
+      filename: ./logs/drawing_machine.log
+      maxBytes: 10485760  # 10MB
+      backupCount: 5
+      encoding: utf8
+    
+    error_file:
+      class: logging.handlers.RotatingFileHandler
+      level: ERROR
+      formatter: detailed
+      filename: ./logs/drawing_machine_errors.log
+      maxBytes: 10485760  # 10MB
+      backupCount: 5
+      encoding: utf8
+    
+    motor_file:
+      class: logging.handlers.RotatingFileHandler
+      level: DEBUG
+      formatter: json
+      filename: ./logs/motor_controller.log
+      maxBytes: 5242880   # 5MB
+      backupCount: 3
+      encoding: utf8
+
+  loggers:
+    # Root logger
+    "":
+      level: INFO
+      handlers: [console, file, error_file]
+      propagate: false
+    
+    # Service-specific loggers
+    drawing_machine.motor_controller:
+      level: DEBUG
+      handlers: [console, motor_file, error_file]
+      propagate: false
+    
+    drawing_machine.blockchain_data:
+      level: INFO
+      handlers: [console, file, error_file]
+      propagate: false
+    
+    drawing_machine.manual_control:
+      level: DEBUG
+      handlers: [console, file, error_file]
+      propagate: false
+    
+    drawing_machine.offline_drawing:
+      level: INFO
+      handlers: [console, file, error_file]
+      propagate: false
+    
+    drawing_machine.user_dashboard:
+      level: INFO
+      handlers: [console, file, error_file]
+      propagate: false
+    
+    # External library loggers
+    uvicorn:
+      level: INFO
+      handlers: [console, file]
+      propagate: false
+    
+    fastapi:
+      level: INFO
+      handlers: [console, file]
+      propagate: false
+    
+    sqlalchemy:
+      level: WARNING
+      handlers: [console, file]
+      propagate: false
+
+# Log levels by environment
+environment_levels:
+  development:
+    root_level: DEBUG
+    service_level: DEBUG
+    external_level: INFO
+    
+  staging:
+    root_level: INFO
+    service_level: DEBUG
+    external_level: WARNING
+    
+  production:
+    root_level: WARNING
+    service_level: INFO
+    external_level: ERROR
+
+# Log retention policies
+retention:
+  development:
+    days: 7
+    max_size_mb: 100
+    
+  staging:
+    days: 30
+    max_size_mb: 500
+    
+  production:
+    days: 90
+    max_size_mb: 2000
+
+# Structured logging fields
+structured_fields:
+  required:
+    - timestamp
+    - service
+    - level
+    - message
+  
+  optional:
+    - session_id
+    - drawing_id
+    - epoch
+    - motor_id
+    - user_id
+    - request_id
+    - blockchain_data_quality
+    - motor_velocity
+    - operational_mode
+
+# Sensitive data filtering
+sensitive_data:
+  # Never log these fields
+  exclude_fields:
+    - password
+    - api_key
+    - secret
+    - token
+    - private_key
+  
+  # Mask these fields (show only first/last characters)
+  mask_fields:
+    - wallet_address
+    - session_token

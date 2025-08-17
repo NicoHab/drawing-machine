@@ -1,0 +1,126 @@
+# Motor Configuration and Data Mappings for Drawing Machine
+# Based on the JSON specification motor_data_mapping section
+
+motor_configuration:
+  # Physical motor specifications
+  motors:
+    motor_canvas:
+      name: "Canvas Rotation Motor"
+      function: "Rotates canvas via gear reduction system"
+      mechanical_specs:
+        gear_ratio: "400:1"
+        motor_type: "stepper_motor_200_steps_per_revolution"
+        implementation: "two_stage_20:1_worm_gears"
+      communication:
+        tcp_address: "localhost:8765"
+        command_timeout_ms: 1000
+        retry_attempts: 3
+      velocity_range:
+        min_rpm: 8
+        max_rpm: 20
+      safety_limits:
+        emergency_stop_rpm: 25
+        acceleration_limit_rpm_per_sec: 5
+
+    motor_pb:
+      name: "Turntable P(b) - Arm B Mount"
+      function: "Controls first turntable where Arm B is mounted"
+      mechanical_specs:
+        gear_ratio: "direct_drive"
+        turntable_radius_mm: 40
+        motor_type: "stepper_motor_200_steps_per_revolution"
+      velocity_range:
+        min_rpm: 5
+        max_rpm: 35
+      safety_limits:
+        emergency_stop_rpm: 40
+        acceleration_limit_rpm_per_sec: 8
+
+    motor_pcd:
+      name: "Turntable P(cd) - Arms C&D Joint"
+      function: "Controls second turntable where Arms C and D are jointed"
+      mechanical_specs:
+        gear_ratio: "direct_drive"
+        turntable_radius_mm: 40
+        motor_type: "stepper_motor_200_steps_per_revolution"
+      velocity_range:
+        min_rpm: 6
+        max_rpm: 18
+      safety_limits:
+        emergency_stop_rpm: 25
+        acceleration_limit_rpm_per_sec: 6
+
+    motor_pe:
+      name: "Turntable P(e) - Arm E Mount"
+      function: "Controls third turntable where Arm E is mounted"
+      mechanical_specs:
+        gear_ratio: "direct_drive"
+        turntable_radius_mm: 40
+        motor_type: "stepper_motor_200_steps_per_revolution"
+      velocity_range:
+        min_rpm: 4
+        max_rpm: 25
+      safety_limits:
+        emergency_stop_rpm: 30
+        acceleration_limit_rpm_per_sec: 7
+
+# Data to Motor Velocity Mappings (from JSON specification)
+data_mappings:
+  motor_canvas:
+    data_source: "eth_price_level"
+    formula: "8 + (eth_price_usd * 0.005)"
+    baseline_rpm: 8
+    description: "Higher ETH price = faster canvas rotation"
+    direction_logic: "always_clockwise"
+
+  motor_pb:
+    data_source: "gas_price_level"
+    formula: "5 + (gas_price_gwei * 0.15)"
+    baseline_rpm: 5
+    rpm_cap: 35
+    description: "Higher gas prices = faster arm movement"
+    direction_logic: "clockwise_if_increasing_counter_clockwise_if_decreasing"
+
+  motor_pcd:
+    data_source: "blob_space_utilization"
+    formula: "6 + (blob_utilization_percentage * 0.12)"
+    baseline_rpm: 6
+    description: "Higher blob usage = faster arm movement"
+    direction_logic: "clockwise_if_increasing_counter_clockwise_if_decreasing"
+
+  motor_pe:
+    data_source: "block_fullness_percentage"
+    formula: "4 + (block_fullness_percentage * 0.21)"
+    baseline_rpm: 4
+    description: "Fuller blocks = faster arm movement"
+    direction_logic: "clockwise_if_increasing_counter_clockwise_if_decreasing"
+
+# Operational modes (multi-mode system from JSON spec)
+operational_modes:
+  blockchain_mode:
+    description: "Real-time Ethereum data drives motor velocities"
+    update_frequency_seconds: 3.4
+    data_sources_required: ["eth_price", "gas_price", "blob_utilization", "block_fullness"]
+    
+  manual_mode:
+    description: "Direct user control via physical controls and web dashboard"
+    control_methods: ["physical_controls", "web_interface", "api_commands"]
+    safety_interlocks: true
+    
+  offline_mode:
+    description: "Execute pre-computed drawing sequences without connectivity"
+    sequence_directory: "./data/offline_sequences"
+    supported_formats: ["json", "compressed_json"]
+    
+  hybrid_mode:
+    description: "Combination of blockchain data with manual user overrides"
+    blockchain_base: true
+    manual_overrides_enabled: true
+    override_timeout_seconds: 300
+
+# Drawing session configuration
+drawing_sessions:
+  default_duration_minutes: 89.25
+  total_epochs: 1575
+  epoch_duration_seconds: 3.4
+  session_data_retention_days: 90

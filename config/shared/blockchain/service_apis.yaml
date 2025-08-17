@@ -1,0 +1,136 @@
+# Service API Configuration
+# Internal service communication and external API settings
+
+# Cloud Services Configuration
+cloud_services:
+  orchestrator_service:
+    name: "Drawing Orchestrator"
+    host: "localhost"
+    port: 8080
+    endpoints:
+      health: "/system/health"
+      drawing_start: "/drawing/start"
+      drawing_stop: "/drawing/stop"
+      drawing_status: "/drawing/status"
+      current_data: "/drawing/current-data"
+    websocket:
+      port: 8081
+      endpoint: "/ws/drawing"
+      heartbeat_interval_seconds: 30
+
+  data_aggregator_service:
+    name: "Blockchain Data Aggregator"
+    host: "localhost"
+    port: 8082
+    endpoints:
+      health: "/health"
+      current_data: "/data/current"
+      historical_data: "/data/historical"
+      data_quality: "/data/quality"
+
+  velocity_calculator_service:
+    name: "Motor Velocity Calculator"
+    host: "localhost"
+    port: 8083
+    endpoints:
+      health: "/health"
+      calculate: "/velocity/calculate"
+      mappings: "/velocity/mappings"
+      update_mappings: "/velocity/mappings"
+
+  user_dashboard_service:
+    name: "User Dashboard"
+    host: "localhost"
+    port: 3001
+    endpoints:
+      health: "/api/health"
+      drawing_status: "/api/drawing/live"
+      system_health: "/api/system/health"
+    websocket:
+      endpoint: "/ws/drawing"
+
+  offline_generator_service:
+    name: "Offline Drawing Generator"
+    host: "localhost"
+    port: 8084
+    endpoints:
+      health: "/health"
+      generate_from_blockchain: "/generate/from-blockchain"
+      generate_pattern: "/generate/pattern"
+      generate_text: "/generate/text"
+      library_drawings: "/library/drawings"
+
+# Edge Services Configuration
+edge_services:
+  motor_controller_service:
+    name: "Motor Controller"
+    communication:
+      type: "tcp"
+      host: "localhost"
+      port: 8765
+      timeout_ms: 1000
+      retry_attempts: 3
+    endpoints:
+      health: "/health"
+      motor_status: "/motor/status"
+      emergency_stop: "/motor/emergency-stop"
+
+  manual_control_service:
+    name: "Manual Control Interface"
+    host: "localhost"
+    port: 8086
+    endpoints:
+      health: "/health"
+      manual_control: "/manual/motors/speeds"
+      patterns: "/manual/patterns/execute"
+      recording: "/manual/record"
+      playback: "/manual/playback"
+
+  offline_drawing_service:
+    name: "Offline Drawing Service"
+    host: "localhost"
+    port: 8087
+    endpoints:
+      health: "/health"
+      drawings_list: "/offline/drawings/list"
+      drawings_upload: "/offline/drawings/upload"
+      drawings_execute: "/offline/drawings/execute"
+      drawings_status: "/offline/drawings/status"
+
+# API Authentication & Security
+security:
+  authentication:
+    enabled: false  # Set to true for production
+    method: "jwt"
+    token_expiry_hours: 24
+    secret_key_env: "JWT_SECRET_KEY"
+  
+  rate_limiting:
+    enabled: true
+    default_rate: "100/minute"
+    burst_rate: "200/minute"
+    
+  cors:
+    enabled: true
+    allowed_origins:
+      - "http://localhost:3001"
+      - "http://localhost:5173"
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Content-Type", "Authorization"]
+
+# Service Discovery & Health Checks
+service_discovery:
+  health_check_interval_seconds: 30
+  service_timeout_seconds: 5
+  failure_threshold: 3
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_seconds: 60
+
+# Development Configuration
+development:
+  debug_mode: true
+  auto_reload: true
+  detailed_logging: true
+  mock_external_apis: false
