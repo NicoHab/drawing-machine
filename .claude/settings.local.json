@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python:*)",
       "Bash(del test_recursion_fix.py)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(poetry run pytest:*)"
     ],
     "deny": [],
     "ask": []

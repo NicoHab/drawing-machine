@@ -284,15 +284,15 @@ class HardwareInterface:
     
     async def _update_motor_timing(self, commands: MotorVelocityCommands) -> None:
         """Update motor operation timing based on commands."""
-        motor_velocities = [
-            (MotorName.CANVAS, commands.canvas_velocity_rpm),
-            (MotorName.PEN_BRUSH, commands.pen_brush_velocity_rpm),
-            (MotorName.PEN_COLOR_DEPTH, commands.pen_color_depth_velocity_rpm),
-            (MotorName.PEN_ELEVATION, commands.pen_elevation_velocity_rpm),
-        ]
-        
-        for motor_name, velocity in motor_velocities:
-            if velocity > 0:
-                await self.safety_controller.start_motor_timing(motor_name)
-            else:
-                await self.safety_controller.stop_motor_timing(motor_name)
+        for motor_name_str, motor_command in commands.motors.items():
+            try:
+                motor_name = MotorName(motor_name_str)
+                velocity = motor_command.velocity_rpm
+                
+                if abs(velocity) > 0:
+                    await self.safety_controller.start_motor_timing(motor_name)
+                else:
+                    await self.safety_controller.stop_motor_timing(motor_name)
+            except ValueError:
+                # Skip invalid motor names
+                continue

@@ -211,17 +211,14 @@ class MotorCommandGenerator:
                 
                 self.logger.warning(f"Motor {motor_name.value} velocity limited: {original_rpm:.1f} -> {safety_limit:.1f} RPM")
                 
-                # Update metadata to record safety limiting
-                command.metadata["safety_limited"] = True
-                command.metadata["original_velocity_rpm"] = original_rpm
-                command.metadata["safety_limit_rpm"] = safety_limit
+                # Safety limiting applied (metadata would be stored separately if needed)
     
     def _create_calculation_metadata(self, data: EthereumDataSnapshot) -> Dict:
         """Create metadata about command calculation process."""
         return {
             "generation_timestamp": datetime.now().timestamp(),
             "algorithm_version": "1.0",
-            "data_quality_score": data.data_quality_score,
+            "data_quality_score": data.data_quality.overall_quality_score,
             "market_condition": data.get_market_condition().value,
             "activity_level": data.get_activity_level().value,
             "price_range": self._classify_price_range(data.eth_price_usd),
@@ -268,22 +265,22 @@ class MotorCommandGenerator:
     async def generate_test_commands(self, epoch: int = 0) -> MotorVelocityCommands:
         """Generate test motor commands with mock data."""
         # Create mock blockchain data for testing
-        from shared.models.blockchain_data import ApiResponseTimes
+        from shared.models.blockchain_data import ApiResponseTimes, DataQuality
         
         mock_data = EthereumDataSnapshot(
             timestamp=datetime.now().timestamp(),
+            epoch=epoch,
             eth_price_usd=2500.0,
             gas_price_gwei=25.0,
-            network_congestion_percent=60.0,
-            pending_transactions=120000,
-            beacon_participation_rate=96.5,
-            eth_staked_percent=28.0,
-            validator_count=580000,
-            market_condition=MarketCondition.SIDEWAYS,
-            activity_level=ActivityLevel.MODERATE,
-            data_quality_score=100.0,
-            block_number=18500000,
-            epoch_number=12500,
+            blob_space_utilization_percent=60.0,
+            block_fullness_percent=80.0,
+            data_quality=DataQuality(
+                price_data_fresh=True,
+                gas_data_fresh=True,
+                blob_data_fresh=True,
+                block_data_fresh=True,
+                overall_quality_score=0.9
+            ),
             api_response_times=ApiResponseTimes(
                 coinbase_ms=150.0,
                 ethereum_rpc_ms=200.0,

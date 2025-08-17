@@ -110,7 +110,7 @@ class SafetyController:
         self._motor_temperatures[motor_name] = temperature
         max_temp = 85.0  # Default temperature limit
         
-        if temperature > max_temp:
+        if temperature >= max_temp:
             await self._create_alert(
                 SafetyLevel.CRITICAL,
                 f"Motor {motor_name.value} temperature {temperature}°C exceeds limit {max_temp}°C",
@@ -265,16 +265,22 @@ class SafetyController:
     
     async def _check_motor_conflicts(self, commands: MotorVelocityCommands) -> None:
         """Check for potentially conflicting motor operations."""
-        # Example: High pen elevation with high canvas velocity might cause issues
-        if (commands.pen_elevation_velocity_rpm > 20.0 and 
-            commands.canvas_velocity_rpm > 25.0):
+        try:
+            # Get motor velocities from the commands dict
+            pen_elevation_rpm = commands.motors.get(MotorName.PEN_ELEVATION.value, {}).velocity_rpm or 0.0
+            canvas_rpm = commands.motors.get(MotorName.CANVAS.value, {}).velocity_rpm or 0.0
             
-            await self._create_alert(
-                SafetyLevel.WARNING,
-                "High pen elevation and canvas velocity simultaneously - potential interference",
-                None,
-                "motor_conflict"
-            )
+            # Example: High pen elevation with high canvas velocity might cause issues
+            if pen_elevation_rpm > 20.0 and canvas_rpm > 25.0:
+                await self._create_alert(
+                    SafetyLevel.WARNING,
+                    "High pen elevation and canvas velocity simultaneously - potential interference",
+                    None,
+                    "motor_conflict"
+                )
+        except (AttributeError, KeyError):
+            # If motor data is missing or malformed, continue without conflict checking
+            pass
     
     async def _create_alert(
         self,

@@ -250,14 +250,21 @@ class DataProcessor:
     def _validate_commands(self, commands: MotorVelocityCommands) -> bool:
         """Validate generated motor commands."""
         try:
-            # Check that all required motors are present
-            required_motors = {motor.value for motor in MotorSafetyLimits().get_limit_for_motor.__code__.co_varnames}
-            # Simplified validation - in practice would check against MotorName enum
+            from shared.models.motor_commands import MotorName
             
-            # Check that velocities are within safety limits
+            # Check that all required motors are present
+            required_motors = {motor.value for motor in MotorName}
+            provided_motors = set(commands.motors.keys())
+            
+            if not required_motors.issubset(provided_motors):
+                missing = required_motors - provided_motors
+                self.logger.error(f"Missing required motors: {missing}")
+                return False
+            
+            # Check that velocities are within reasonable bounds
             for motor_name, command in commands.motors.items():
-                if command.velocity_rpm < 0:
-                    self.logger.error(f"Negative velocity for {motor_name}: {command.velocity_rpm}")
+                if abs(command.velocity_rpm) > 200:  # Reasonable max velocity
+                    self.logger.error(f"Excessive velocity for {motor_name}: {command.velocity_rpm}")
                     return False
             
             return True
