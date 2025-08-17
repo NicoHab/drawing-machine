@@ -28,13 +28,16 @@ from dataclasses import dataclass, asdict
 
 try:
     from colorama import init, Fore, Style, Back
+
     init(autoreset=True)
 except ImportError:
     # Fallback if colorama not available
     class Fore:
         GREEN = YELLOW = RED = CYAN = BLUE = MAGENTA = ""
+
     class Style:
         DIM = RESET_ALL = ""
+
     class Back:
         BLUE = ""
 
@@ -42,6 +45,7 @@ except ImportError:
 @dataclass
 class ProjectConfig:
     """Configuration for TDD project generation."""
+
     name: str
     description: str
     author: str
@@ -57,239 +61,250 @@ class ProjectConfig:
 class TDDProjectGenerator:
     """
     TDD Project Template Generator based on Drawing Machine patterns.
-    
+
     Generates production-ready projects with comprehensive TDD infrastructure,
     proven patterns, and automatic test execution capabilities.
     """
-    
+
     def __init__(self, source_root: Optional[Path] = None):
         """
         Initialize the TDD project generator.
-        
+
         Args:
             source_root: Root directory containing the Drawing Machine source
         """
         self.source_root = source_root or Path(__file__).parent.parent
         self.templates_dir = self.source_root / "templates"
-        
+
         # Available project templates
         self.template_types = {
-            'service': 'FastAPI service with TDD infrastructure',
-            'models': 'Pydantic models with comprehensive testing',
-            'integration': 'Integration testing framework',
-            'minimal': 'Minimal TDD project setup'
+            "service": "FastAPI service with TDD infrastructure",
+            "models": "Pydantic models with comprehensive testing",
+            "integration": "Integration testing framework",
+            "minimal": "Minimal TDD project setup",
         }
-        
+
         print(f"{Fore.CYAN}TDD Project Generator initialized")
         print(f"{Fore.CYAN}Source: {self.source_root}")
         print(f"{Fore.CYAN}Templates: {len(self.template_types)} available")
-    
+
     def create_project(self, config: ProjectConfig) -> bool:
         """
         Create a TDD project from configuration.
-        
+
         Args:
             config: Project configuration
-            
+
         Returns:
             True if project created successfully
         """
         try:
-            print(f"\n{Back.BLUE}{Fore.WHITE} CREATING TDD PROJECT: {config.name} {Style.RESET_ALL}")
+            print(
+                f"\n{Back.BLUE}{Fore.WHITE} CREATING TDD PROJECT: {config.name} {Style.RESET_ALL}"
+            )
             print(f"{Fore.GREEN}Template: {config.template_type}")
             print(f"{Fore.GREEN}Target: {config.target_directory}")
             print(f"{Fore.GREEN}Coverage Target: {config.coverage_target}%")
-            
+
             # Create project directory
             project_dir = config.target_directory / config.name
             if project_dir.exists():
                 print(f"{Fore.RED}Error: Directory {project_dir} already exists")
                 return False
-            
+
             project_dir.mkdir(parents=True)
             print(f"{Fore.GREEN}Created project directory: {project_dir}")
-            
+
             # Generate project structure
             self._create_project_structure(project_dir, config)
-            
+
             # Generate core files
             self._generate_core_files(project_dir, config)
-            
+
             # Generate template-specific files
-            if config.template_type == 'service':
+            if config.template_type == "service":
                 self._generate_service_files(project_dir, config)
-            elif config.template_type == 'models':
+            elif config.template_type == "models":
                 self._generate_models_files(project_dir, config)
-            elif config.template_type == 'integration':
+            elif config.template_type == "integration":
                 self._generate_integration_files(project_dir, config)
-            elif config.template_type == 'minimal':
+            elif config.template_type == "minimal":
                 self._generate_minimal_files(project_dir, config)
-            
+
             # Copy TDD infrastructure
             self._copy_tdd_infrastructure(project_dir, config)
-            
+
             # Generate documentation
             self._generate_documentation(project_dir, config)
-            
+
             print(f"\n{Fore.GREEN}✅ TDD Project '{config.name}' created successfully!")
             print(f"{Fore.YELLOW}Next steps:")
             print(f"{Fore.YELLOW}  1. cd {project_dir}")
             print(f"{Fore.YELLOW}  2. poetry install")
             print(f"{Fore.YELLOW}  3. python scripts/auto_test_runner.py --test")
-            print(f"{Fore.YELLOW}  4. python scripts/auto_test_runner.py  # Start TDD monitoring")
-            
+            print(
+                f"{Fore.YELLOW}  4. python scripts/auto_test_runner.py  # Start TDD monitoring"
+            )
+
             return True
-            
+
         except Exception as e:
             print(f"{Fore.RED}Error creating project: {e}")
             import traceback
+
             traceback.print_exc()
             return False
-    
+
     def _create_project_structure(self, project_dir: Path, config: ProjectConfig):
         """Create the basic project directory structure."""
         directories = [
             "src",
             "src/models",
             "tests",
-            "tests/unit", 
+            "tests/unit",
             "tests/integration",
             "tests/fixtures",
             "scripts",
             "docs",
             "reports",
             "reports/pytest",
-            "reports/coverage"
+            "reports/coverage",
         ]
-        
-        if config.include_fastapi or config.template_type == 'service':
-            directories.extend([
-                "src/api",
-                "src/api/routes",
-                "src/services",
-                "tests/api"
-            ])
-        
+
+        if config.include_fastapi or config.template_type == "service":
+            directories.extend(
+                ["src/api", "src/api/routes", "src/services", "tests/api"]
+            )
+
         if config.include_docker:
-            directories.extend([
-                "docker",
-                "docker/dev"
-            ])
-        
+            directories.extend(["docker", "docker/dev"])
+
         for directory in directories:
             (project_dir / directory).mkdir(parents=True, exist_ok=True)
             # Create __init__.py files for Python packages
-            if any(pkg in directory for pkg in ['src', 'tests']):
+            if any(pkg in directory for pkg in ["src", "tests"]):
                 (project_dir / directory / "__init__.py").write_text("")
-        
+
         print(f"{Fore.BLUE}Created {len(directories)} directories")
-    
+
     def _generate_core_files(self, project_dir: Path, config: ProjectConfig):
         """Generate core project files."""
-        
+
         # pyproject.toml with proven dependencies
         pyproject_content = self._generate_pyproject_toml(config)
         (project_dir / "pyproject.toml").write_text(pyproject_content)
-        
+
         # pytest.ini with coverage configuration
         pytest_ini = self._generate_pytest_ini(config)
         (project_dir / "pytest.ini").write_text(pytest_ini)
-        
+
         # .gitignore
         gitignore = self._generate_gitignore()
         (project_dir / ".gitignore").write_text(gitignore)
-        
+
         # VS Code settings for TDD
         vscode_dir = project_dir / ".vscode"
         vscode_dir.mkdir(exist_ok=True)
         (vscode_dir / "settings.json").write_text(self._generate_vscode_settings())
         (vscode_dir / "tasks.json").write_text(self._generate_vscode_tasks())
-        
+
         # Environment configuration
         (project_dir / ".env.example").write_text(self._generate_env_example(config))
-        
+
         print(f"{Fore.BLUE}Generated core configuration files")
-    
+
     def _generate_service_files(self, project_dir: Path, config: ProjectConfig):
         """Generate FastAPI service files with TDD patterns."""
-        
+
         # Main FastAPI application
         main_app = self._generate_fastapi_main(config)
         (project_dir / "src" / "main.py").write_text(main_app)
-        
+
         # Example API models
         api_models = self._generate_api_models(config)
         (project_dir / "src" / "models" / "api_models.py").write_text(api_models)
-        
+
         # Example API routes
         api_routes = self._generate_api_routes(config)
         (project_dir / "src" / "api" / "routes" / "example.py").write_text(api_routes)
         (project_dir / "src" / "api" / "__init__.py").write_text("")
         (project_dir / "src" / "api" / "routes" / "__init__.py").write_text("")
-        
+
         # Service layer
         service_layer = self._generate_service_layer(config)
-        (project_dir / "src" / "services" / "example_service.py").write_text(service_layer)
+        (project_dir / "src" / "services" / "example_service.py").write_text(
+            service_layer
+        )
         (project_dir / "src" / "services" / "__init__.py").write_text("")
-        
+
         # API tests
         api_tests = self._generate_api_tests(config)
         (project_dir / "tests" / "api" / "test_example_api.py").write_text(api_tests)
         (project_dir / "tests" / "api" / "__init__.py").write_text("")
-        
+
         print(f"{Fore.BLUE}Generated FastAPI service files with TDD patterns")
-    
+
     def _generate_models_files(self, project_dir: Path, config: ProjectConfig):
         """Generate Pydantic models with comprehensive testing."""
-        
+
         # Example models based on Drawing Machine patterns
         example_models = self._generate_example_models(config)
-        (project_dir / "src" / "models" / "example_models.py").write_text(example_models)
-        
+        (project_dir / "src" / "models" / "example_models.py").write_text(
+            example_models
+        )
+
         # Base model with common patterns
         base_model = self._generate_base_model(config)
         (project_dir / "src" / "models" / "base.py").write_text(base_model)
-        
+
         # Model tests based on test_foundational_models.py success
         model_tests = self._generate_model_tests(config)
-        (project_dir / "tests" / "unit" / "test_example_models.py").write_text(model_tests)
-        
+        (project_dir / "tests" / "unit" / "test_example_models.py").write_text(
+            model_tests
+        )
+
         # Test fixtures
         test_fixtures = self._generate_test_fixtures(config)
-        (project_dir / "tests" / "fixtures" / "model_fixtures.py").write_text(test_fixtures)
-        
+        (project_dir / "tests" / "fixtures" / "model_fixtures.py").write_text(
+            test_fixtures
+        )
+
         print(f"{Fore.BLUE}Generated Pydantic models with comprehensive tests")
-    
+
     def _generate_integration_files(self, project_dir: Path, config: ProjectConfig):
         """Generate integration testing framework."""
-        
+
         # Integration test base
         integration_base = self._generate_integration_base(config)
-        (project_dir / "tests" / "integration" / "test_base.py").write_text(integration_base)
-        
+        (project_dir / "tests" / "integration" / "test_base.py").write_text(
+            integration_base
+        )
+
         # Example integration tests
         integration_tests = self._generate_integration_tests(config)
-        (project_dir / "tests" / "integration" / "test_example_integration.py").write_text(integration_tests)
-        
+        (
+            project_dir / "tests" / "integration" / "test_example_integration.py"
+        ).write_text(integration_tests)
+
         # Test utilities
         test_utils = self._generate_test_utils(config)
         (project_dir / "tests" / "utils.py").write_text(test_utils)
-        
+
         print(f"{Fore.BLUE}Generated integration testing framework")
-    
+
     def _generate_minimal_files(self, project_dir: Path, config: ProjectConfig):
         """Generate minimal TDD setup."""
-        
+
         # Simple example module
         example_module = self._generate_minimal_module(config)
         (project_dir / "src" / "example.py").write_text(example_module)
-        
+
         # Basic tests
         basic_tests = self._generate_minimal_tests(config)
         (project_dir / "tests" / "unit" / "test_example.py").write_text(basic_tests)
-        
+
         print(f"{Fore.BLUE}Generated minimal TDD setup")
-    
+
     def _generate_minimal_module(self, config: ProjectConfig) -> str:
         """Generate a minimal example module."""
         return f'''"""
@@ -439,51 +454,53 @@ class TestCalculatorIntegration:
         
         assert final_result == 17
 '''
-    
+
     def _copy_tdd_infrastructure(self, project_dir: Path, config: ProjectConfig):
         """Copy TDD infrastructure from Drawing Machine."""
-        
+
         scripts_dir = project_dir / "scripts"
-        
+
         # Copy auto_test_runner.py
         auto_test_runner_source = self.source_root / "scripts" / "auto_test_runner.py"
         if auto_test_runner_source.exists():
             shutil.copy2(auto_test_runner_source, scripts_dir / "auto_test_runner.py")
-            print(f"{Fore.GREEN}Copied auto_test_runner.py (FileWatcher + TestExecutor)")
-        
+            print(
+                f"{Fore.GREEN}Copied auto_test_runner.py (FileWatcher + TestExecutor)"
+            )
+
         # Copy TDD workflow tools if they exist
         tdd_workflow_source = self.source_root / "scripts" / "tdd_workflow.py"
         if tdd_workflow_source.exists():
             shutil.copy2(tdd_workflow_source, scripts_dir / "tdd_workflow.py")
             print(f"{Fore.GREEN}Copied tdd_workflow.py (TDD Workflow Manager)")
-        
+
         # Generate Docker configuration if requested
         if config.include_docker:
             self._generate_docker_files(project_dir, config)
-        
+
         print(f"{Fore.BLUE}Copied TDD infrastructure from Drawing Machine")
-    
+
     def _generate_documentation(self, project_dir: Path, config: ProjectConfig):
         """Generate comprehensive project documentation."""
-        
+
         # Main README
         #         readme = self._generate_readme(config) # TODO: Fix missing method
         (project_dir / "README.md").write_text(f"# {config['name']}\n\nTDD Project")
-        
+
         # TDD workflow documentation
         tdd_guide = self._generate_tdd_guide(config)
         (project_dir / "docs" / "TDD_GUIDE.md").write_text(tdd_guide)
-        
+
         # API documentation (if service)
-        if config.template_type == 'service':
+        if config.template_type == "service":
             api_docs = self._generate_api_docs(config)
             (project_dir / "docs" / "API.md").write_text(api_docs)
-        
+
         print(f"{Fore.BLUE}Generated comprehensive documentation")
-    
+
     def _generate_pyproject_toml(self, config: ProjectConfig) -> str:
         """Generate pyproject.toml with proven dependencies."""
-        return f'''[tool.poetry]
+        return f"""[tool.poetry]
 name = "{config.name.lower().replace(' ', '-')}"
 version = "0.1.0"
 description = "{config.description}"
@@ -542,11 +559,11 @@ python_version = "{config.python_version}"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-'''
-    
+"""
+
     def _generate_pytest_ini(self, config: ProjectConfig) -> str:
         """Generate pytest.ini configuration."""
-        return f'''[tool:pytest]
+        return f"""[tool:pytest]
 testpaths = tests
 python_files = test_*.py
 python_classes = Test*
@@ -563,11 +580,11 @@ addopts =
 filterwarnings =
     ignore::DeprecationWarning
     ignore::PendingDeprecationWarning
-'''
-    
+"""
+
     def _generate_gitignore(self) -> str:
         """Generate .gitignore file."""
-        return '''# Python
+        return """# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -644,11 +661,11 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-'''
-    
+"""
+
     def _generate_vscode_settings(self) -> str:
         """Generate VS Code settings for TDD development."""
-        return '''{
+        return """{
     "python.defaultInterpreterPath": "./venv/bin/python",
     "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
@@ -671,11 +688,11 @@ yarn-error.log*
         ".coverage": true
     },
     "python.analysis.typeCheckingMode": "basic"
-}'''
-    
+}"""
+
     def _generate_vscode_tasks(self) -> str:
         """Generate VS Code tasks for TDD workflow."""
-        return '''{
+        return """{
     "version": "2.0.0",
     "tasks": [
         {
@@ -725,11 +742,11 @@ yarn-error.log*
             "group": "build"
         }
     ]
-}'''
-    
+}"""
+
     def _generate_env_example(self, config: ProjectConfig) -> str:
         """Generate example environment file."""
-        env_content = f'''# {config.name} Environment Configuration
+        env_content = f"""# {config.name} Environment Configuration
 
 # Development settings
 DEBUG=true
@@ -737,25 +754,25 @@ LOG_LEVEL=INFO
 
 # Testing
 PYTEST_COVERAGE_TARGET={config.coverage_target}
-'''
-        
-        if config.include_fastapi or config.template_type == 'service':
-            env_content += '''
+"""
+
+        if config.include_fastapi or config.template_type == "service":
+            env_content += """
 # FastAPI settings
 API_HOST=0.0.0.0
 API_PORT=8000
 API_RELOAD=true
-'''
-        
+"""
+
         if config.include_database:
-            env_content += '''
+            env_content += """
 # Database settings
 DATABASE_URL=sqlite:///./test.db
 TEST_DATABASE_URL=sqlite:///./test_db.db
-'''
-        
+"""
+
         return env_content
-    
+
     def _generate_fastapi_main(self, config: ProjectConfig) -> str:
         """Generate FastAPI main application."""
         return f'''"""
@@ -820,7 +837,7 @@ if __name__ == "__main__":
         reload=True
     )
 '''
-    
+
     def _generate_api_models(self, config: ProjectConfig) -> str:
         """Generate API models based on Drawing Machine patterns."""
         return f'''"""
@@ -988,7 +1005,7 @@ class ExampleListResponse(APIResponse):
         """Check if there are more pages."""
         return (self.page * self.per_page) < self.total
 '''
-    
+
     def _generate_api_routes(self, config: ProjectConfig) -> str:
         """Generate API routes with comprehensive testing patterns."""
         return f'''"""
@@ -1180,7 +1197,7 @@ async def get_example_summary(
     
     return example.to_summary()
 '''
-    
+
     def _generate_service_layer(self, config: ProjectConfig) -> str:
         """Generate service layer with business logic."""
         return f'''"""
@@ -1396,7 +1413,7 @@ class ExampleService:
             "last_updated": datetime.now().isoformat()
         }}
 '''
-    
+
     def _generate_api_tests(self, config: ProjectConfig) -> str:
         """Generate comprehensive API tests."""
         return f'''"""
@@ -1706,7 +1723,7 @@ class TestAPIValidation:
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 '''
-    
+
     def _generate_example_models(self, config: ProjectConfig) -> str:
         """Generate example models based on Drawing Machine patterns."""
         return f'''"""
@@ -2009,7 +2026,7 @@ EXAMPLE_METRICS_SCHEMA = {{
     "metric_unit": "ms"
 }}
 '''
-    
+
     def _generate_base_model(self, config: ProjectConfig) -> str:
         """Generate base model with common patterns."""
         return f'''"""
@@ -2138,7 +2155,7 @@ class BaseModelWithValidation(BaseModel):
         # but can be overridden in subclasses if needed
         pass
 '''
-    
+
     def _generate_model_tests(self, config: ProjectConfig) -> str:
         """Generate comprehensive model tests based on test_foundational_models.py."""
         return f'''"""
@@ -2582,62 +2599,75 @@ if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 '''
 
+
 def run_interactive_wizard():
     """Run interactive project creation wizard."""
     print(f"\n{Back.BLUE}{Fore.WHITE} TDD PROJECT CREATION WIZARD {Style.RESET_ALL}")
     print(f"{Fore.CYAN}Based on Drawing Machine methodology (97.6% test success rate)")
     print(f"{Fore.CYAN}{'=' * 60}")
-    
+
     # Get project details
     name = input(f"{Fore.YELLOW}Project name: ").strip()
     if not name:
         print(f"{Fore.RED}Project name is required")
         return None
-    
+
     description = input(f"{Fore.YELLOW}Project description: ").strip()
     if not description:
         description = f"TDD project: {name}"
-    
+
     author = input(f"{Fore.YELLOW}Author name: ").strip()
     if not author:
         author = "TDD Developer"
-    
+
     # Choose template type
     print(f"\n{Fore.CYAN}Available template types:")
     generator = TDDProjectGenerator()
-    for i, (template_type, description) in enumerate(generator.template_types.items(), 1):
+    for i, (template_type, description) in enumerate(
+        generator.template_types.items(), 1
+    ):
         print(f"{Fore.CYAN}  {i}. {template_type}: {description}")
-    
+
     while True:
         try:
-            choice = input(f"{Fore.YELLOW}Choose template type (1-{len(generator.template_types)}): ").strip()
+            choice = input(
+                f"{Fore.YELLOW}Choose template type (1-{len(generator.template_types)}): "
+            ).strip()
             template_index = int(choice) - 1
             template_type = list(generator.template_types.keys())[template_index]
             break
         except (ValueError, IndexError):
-            print(f"{Fore.RED}Invalid choice. Please enter a number between 1 and {len(generator.template_types)}")
-    
+            print(
+                f"{Fore.RED}Invalid choice. Please enter a number between 1 and {len(generator.template_types)}"
+            )
+
     # Additional options
-    include_docker = input(f"{Fore.YELLOW}Include Docker configuration? (Y/n): ").strip().lower() in ['', 'y', 'yes']
-    
+    include_docker = input(
+        f"{Fore.YELLOW}Include Docker configuration? (Y/n): "
+    ).strip().lower() in ["", "y", "yes"]
+
     include_fastapi = False
-    if template_type in ['service', 'minimal']:
-        include_fastapi = input(f"{Fore.YELLOW}Include FastAPI? (Y/n): ").strip().lower() in ['', 'y', 'yes']
-    
+    if template_type in ["service", "minimal"]:
+        include_fastapi = input(
+            f"{Fore.YELLOW}Include FastAPI? (Y/n): "
+        ).strip().lower() in ["", "y", "yes"]
+
     # Target directory
     target_dir = input(f"{Fore.YELLOW}Target directory (default: current): ").strip()
     if not target_dir:
         target_dir = "."
-    
+
     # Coverage target
-    coverage_input = input(f"{Fore.YELLOW}Coverage target percentage (default: 90): ").strip()
+    coverage_input = input(
+        f"{Fore.YELLOW}Coverage target percentage (default: 90): "
+    ).strip()
     try:
         coverage_target = int(coverage_input) if coverage_input else 90
         if coverage_target < 50 or coverage_target > 100:
             coverage_target = 90
     except ValueError:
         coverage_target = 90
-    
+
     # Create configuration
     config = ProjectConfig(
         name=name,
@@ -2647,65 +2677,42 @@ def run_interactive_wizard():
         target_directory=Path(target_dir),
         include_docker=include_docker,
         include_fastapi=include_fastapi,
-        coverage_target=coverage_target
+        coverage_target=coverage_target,
     )
-    
+
     return config
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(
-        description='TDD Project Template Generator based on Drawing Machine methodology'
+        description="TDD Project Template Generator based on Drawing Machine methodology"
+    )
+    parser.add_argument("--name", type=str, help="Project name")
+    parser.add_argument(
+        "--type",
+        choices=["service", "models", "integration", "minimal"],
+        default="minimal",
+        help="Template type",
+    )
+    parser.add_argument("--description", type=str, help="Project description")
+    parser.add_argument(
+        "--author", type=str, default="TDD Developer", help="Author name"
+    )
+    parser.add_argument("--target-dir", type=str, default=".", help="Target directory")
+    parser.add_argument(
+        "--coverage", type=int, default=90, help="Coverage target percentage"
     )
     parser.add_argument(
-        '--name',
-        type=str,
-        help='Project name'
+        "--no-docker", action="store_true", help="Skip Docker configuration"
     )
     parser.add_argument(
-        '--type',
-        choices=['service', 'models', 'integration', 'minimal'],
-        default='minimal',
-        help='Template type'
+        "--interactive", action="store_true", help="Run interactive wizard"
     )
-    parser.add_argument(
-        '--description',
-        type=str,
-        help='Project description'
-    )
-    parser.add_argument(
-        '--author',
-        type=str,
-        default='TDD Developer',
-        help='Author name'
-    )
-    parser.add_argument(
-        '--target-dir',
-        type=str,
-        default='.',
-        help='Target directory'
-    )
-    parser.add_argument(
-        '--coverage',
-        type=int,
-        default=90,
-        help='Coverage target percentage'
-    )
-    parser.add_argument(
-        '--no-docker',
-        action='store_true',
-        help='Skip Docker configuration'
-    )
-    parser.add_argument(
-        '--interactive',
-        action='store_true',
-        help='Run interactive wizard'
-    )
-    
+
     args = parser.parse_args()
-    
+
     try:
         if args.interactive:
             # Run interactive wizard
@@ -2715,9 +2722,11 @@ if __name__ == '__main__':
         else:
             # Use command line arguments
             if not args.name:
-                print(f"{Fore.RED}Error: Project name is required (use --name or --interactive)")
+                print(
+                    f"{Fore.RED}Error: Project name is required (use --name or --interactive)"
+                )
                 sys.exit(1)
-            
+
             config = ProjectConfig(
                 name=args.name,
                 description=args.description or f"TDD project: {args.name}",
@@ -2725,22 +2734,22 @@ if __name__ == '__main__':
                 template_type=args.type,
                 target_directory=Path(args.target_dir),
                 include_docker=not args.no_docker,
-                include_fastapi=args.type == 'service',
-                coverage_target=args.coverage
+                include_fastapi=args.type == "service",
+                coverage_target=args.coverage,
             )
-        
+
         # Create the project
         generator = TDDProjectGenerator()
         success = generator.create_project(config)
-        
+
         sys.exit(0 if success else 1)
-        
+
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}Project creation cancelled")
         sys.exit(1)
     except Exception as e:
         print(f"{Fore.RED}Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
-
