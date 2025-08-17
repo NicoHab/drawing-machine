@@ -17,8 +17,8 @@ const systemState = reactive({
   recordingActive: false
 })
 
-// Connection settings
-const wsUrl = ref('ws://localhost:8766')
+// Connection settings - use environment variable with fallback
+const wsUrl = ref(import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8766')
 
 // Connect to WebSocket server
 const connect = () => {
