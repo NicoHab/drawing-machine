@@ -163,27 +163,17 @@ class MotorDriver:
         # Prepare command packet
         command_packet = {
             "type": "motor_commands",
-            "timestamp": time.time(),
-            "session_id": commands.session_id,
-            "motors": {
-                "canvas": {
-                    "velocity": commands.canvas_velocity_rpm,
-                    "direction": commands.canvas_direction.value,
-                },
-                "pb": {
-                    "velocity": commands.pen_brush_velocity_rpm,
-                    "direction": commands.pen_brush_direction.value,
-                },
-                "pcd": {
-                    "velocity": commands.pen_color_depth_velocity_rpm,
-                    "direction": commands.pen_color_depth_direction.value,
-                },
-                "pe": {
-                    "velocity": commands.pen_elevation_velocity_rpm,
-                    "direction": commands.pen_elevation_direction.value,
-                },
-            }
+            "timestamp": commands.timestamp,
+            "epoch": commands.epoch,
+            "motors": {}
         }
+        
+        # Convert motor commands to packet format
+        for motor_name, motor_command in commands.motors.items():
+            command_packet["motors"][motor_name] = {
+                "velocity": motor_command.velocity_rpm,
+                "direction": motor_command.direction.value,
+            }
         
         # Send command
         await self._send_command(command_packet)
@@ -261,38 +251,30 @@ class MotorDriver:
     
     def _validate_commands(self, commands: MotorVelocityCommands) -> None:
         """Validate motor commands against safety limits."""
-        motor_checks = [
-            (MotorName.CANVAS, commands.canvas_velocity_rpm),
-            (MotorName.PEN_BRUSH, commands.pen_brush_velocity_rpm),
-            (MotorName.PEN_COLOR_DEPTH, commands.pen_color_depth_velocity_rpm),
-            (MotorName.PEN_ELEVATION, commands.pen_elevation_velocity_rpm),
-        ]
-        
-        for motor_name, velocity in motor_checks:
-            if not self.safety_limits.validate_rpm(motor_name, velocity):
-                max_limit = self.safety_limits.get_limit_for_motor(motor_name)
-                raise MotorDriverError(
-                    f"Motor {motor_name.value} velocity {velocity} exceeds max limit {max_limit}"
-                )
-            if velocity < 0:
-                raise MotorDriverError(
-                    f"Motor {motor_name.value} velocity {velocity} is negative"
-                )
+        for motor_name_str, motor_command in commands.motors.items():
+            try:
+                motor_name = MotorName(motor_name_str)
+                velocity = motor_command.velocity_rpm
+                
+                if not self.safety_limits.validate_rpm(motor_name, abs(velocity)):
+                    max_limit = self.safety_limits.get_limit_for_motor(motor_name)
+                    raise MotorDriverError(
+                        f"Motor {motor_name.value} velocity {abs(velocity)} exceeds max limit {max_limit}"
+                    )
+            except ValueError:
+                raise MotorDriverError(f"Invalid motor name: {motor_name_str}")
     
     def _update_motor_statuses(self, commands: MotorVelocityCommands) -> None:
         """Update internal motor status tracking."""
         now = datetime.now()
         
-        updates = [
-            (MotorName.CANVAS, commands.canvas_velocity_rpm, commands.canvas_direction),
-            (MotorName.PEN_BRUSH, commands.pen_brush_velocity_rpm, commands.pen_brush_direction),
-            (MotorName.PEN_COLOR_DEPTH, commands.pen_color_depth_velocity_rpm, commands.pen_color_depth_direction),
-            (MotorName.PEN_ELEVATION, commands.pen_elevation_velocity_rpm, commands.pen_elevation_direction),
-        ]
-        
-        for motor_name, velocity, direction in updates:
-            status = self._motor_statuses[motor_name]
-            status.target_velocity = velocity
-            status.direction = direction
-            status.is_moving = velocity > 0.0
-            status.last_command_time = now
+        for motor_name_str, motor_command in commands.motors.items():
+            try:
+                motor_name = MotorName(motor_name_str)
+                status = self._motor_statuses[motor_name]
+                status.target_velocity = motor_command.velocity_rpm
+                status.direction = motor_command.direction
+                status.is_moving = abs(motor_command.velocity_rpm) > 0.0
+                status.last_command_time = now
+            except ValueError:
+                continue  # Skip invalid motor names

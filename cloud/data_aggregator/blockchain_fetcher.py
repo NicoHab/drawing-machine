@@ -17,6 +17,7 @@ from aiohttp import ClientSession, ClientError
 from shared.models.blockchain_data import (
     EthereumDataSnapshot,
     ApiResponseTimes,
+    DataQuality,
     MarketCondition,
     ActivityLevel,
     BlockchainDataValidationError,
@@ -146,8 +147,8 @@ class BlockchainDataFetcher:
             
             return {
                 "gas_price_gwei": base_gas * variation,
-                "network_congestion_percent": random.uniform(10, 90),
-                "pending_transactions": random.randint(50000, 200000),
+                "blob_space_utilization_percent": random.uniform(10, 90),
+                "block_fullness_percent": random.uniform(50, 95),
                 "ethereum_rpc_available": True,
             }
             
@@ -155,8 +156,8 @@ class BlockchainDataFetcher:
             self.logger.warning(f"Ethereum RPC error: {e}")
             return {
                 "gas_price_gwei": self._fallback_data["gas_price_gwei"],
-                "network_congestion_percent": 50.0,
-                "pending_transactions": 100000,
+                "blob_space_utilization_percent": 50.0,
+                "block_fullness_percent": 75.0,
                 "ethereum_rpc_available": False,
             }
     
@@ -193,23 +194,25 @@ class BlockchainDataFetcher:
         
         activity_level = self._determine_activity_level(
             ethereum_data.get("gas_price_gwei", self._fallback_data["gas_price_gwei"]),
-            ethereum_data.get("network_congestion_percent", 50.0)
+            ethereum_data.get("blob_space_utilization_percent", 50.0)
+        )
+        
+        data_quality = DataQuality(
+            price_data_fresh=coinbase_data.get("coinbase_available", False),
+            gas_data_fresh=ethereum_data.get("ethereum_rpc_available", False),
+            blob_data_fresh=ethereum_data.get("ethereum_rpc_available", False),
+            block_data_fresh=ethereum_data.get("ethereum_rpc_available", False),
+            overall_quality_score=self._calculate_data_quality_score(coinbase_data, ethereum_data, beacon_data) / 100.0
         )
         
         return {
             "timestamp": datetime.now().timestamp(),
+            "epoch": 1337,  # Would fetch real epoch number (valid range 0-1574)
             "eth_price_usd": coinbase_data.get("eth_price_usd", self._fallback_data["eth_price_usd"]),
             "gas_price_gwei": ethereum_data.get("gas_price_gwei", self._fallback_data["gas_price_gwei"]),
-            "network_congestion_percent": ethereum_data.get("network_congestion_percent", 50.0),
-            "pending_transactions": ethereum_data.get("pending_transactions", 100000),
-            "beacon_participation_rate": beacon_data.get("beacon_participation_rate", self._fallback_data["beacon_participation_rate"]),
-            "eth_staked_percent": beacon_data.get("eth_staked_percent", self._fallback_data["eth_staked_percent"]),
-            "validator_count": beacon_data.get("validator_count", 550000),
-            "market_condition": market_condition,
-            "activity_level": activity_level,
-            "data_quality_score": self._calculate_data_quality_score(coinbase_data, ethereum_data, beacon_data),
-            "block_number": 18000000,  # Would fetch real block number
-            "epoch_number": 12345,     # Would fetch real epoch number
+            "blob_space_utilization_percent": ethereum_data.get("blob_space_utilization_percent", 50.0),
+            "block_fullness_percent": ethereum_data.get("block_fullness_percent", 75.0),
+            "data_quality": data_quality,
         }
     
     def _determine_market_condition(self, eth_price: float) -> MarketCondition:
@@ -223,9 +226,9 @@ class BlockchainDataFetcher:
         else:
             return MarketCondition.VOLATILE
     
-    def _determine_activity_level(self, gas_price: float, congestion: float) -> ActivityLevel:
-        """Determine network activity level based on gas price and congestion."""
-        activity_score = (gas_price / 50.0) + (congestion / 100.0)
+    def _determine_activity_level(self, gas_price: float, blob_utilization: float) -> ActivityLevel:
+        """Determine network activity level based on gas price and blob utilization."""
+        activity_score = (gas_price / 50.0) + (blob_utilization / 100.0)
         
         if activity_score < 0.5:
             return ActivityLevel.LOW
@@ -256,20 +259,22 @@ class BlockchainDataFetcher:
         """Create a fallback data snapshot when APIs are unavailable."""
         self.logger.warning("Using fallback blockchain data")
         
+        data_quality = DataQuality(
+            price_data_fresh=False,
+            gas_data_fresh=False,
+            blob_data_fresh=False,
+            block_data_fresh=False,
+            overall_quality_score=0.0  # Indicates fallback data
+        )
+        
         return EthereumDataSnapshot(
             timestamp=datetime.now().timestamp(),
+            epoch=1337,  # Valid epoch number
             eth_price_usd=self._fallback_data["eth_price_usd"],
             gas_price_gwei=self._fallback_data["gas_price_gwei"],
-            network_congestion_percent=50.0,
-            pending_transactions=100000,
-            beacon_participation_rate=self._fallback_data["beacon_participation_rate"],
-            eth_staked_percent=self._fallback_data["eth_staked_percent"],
-            validator_count=550000,
-            market_condition=MarketCondition.SIDEWAYS,
-            activity_level=ActivityLevel.MODERATE,
-            data_quality_score=0.0,  # Indicates fallback data
-            block_number=18000000,
-            epoch_number=12345,
+            blob_space_utilization_percent=50.0,
+            block_fullness_percent=75.0,
+            data_quality=data_quality,
             api_response_times=ApiResponseTimes(
                 coinbase_ms=0.0,
                 ethereum_rpc_ms=0.0,

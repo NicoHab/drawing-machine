@@ -20,6 +20,12 @@ from shared.models.motor_commands import (
     MotorName,
     MotorSafetyLimits,
     MotorVelocityCommands,
+    SingleMotorCommand,
+)
+from shared.models.blockchain_data import (
+    EthereumDataSnapshot,
+    ApiResponseTimes,
+    DataQuality,
 )
 
 
@@ -50,17 +56,38 @@ class TestMotorDriver:
         """Test motor command validation."""
         driver = MotorDriver()
         
+        # Create mock source data
+        source_data = EthereumDataSnapshot(
+            timestamp=datetime.now().timestamp(),
+            epoch=1,
+            eth_price_usd=3000.0,
+            gas_price_gwei=25.0,
+            blob_space_utilization_percent=60.0,
+            block_fullness_percent=80.0,
+            data_quality=DataQuality(
+                price_data_fresh=True,
+                gas_data_fresh=True,
+                blob_data_fresh=True,
+                block_data_fresh=True,
+                overall_quality_score=0.9
+            ),
+            api_response_times=ApiResponseTimes(
+                coinbase_ms=150.0,
+                ethereum_rpc_ms=200.0,
+                beacon_chain_ms=180.0,
+            ),
+        )
+        
         # Valid commands
         commands = MotorVelocityCommands(
-            session_id="test-session",
-            canvas_velocity_rpm=10.0,
-            pen_brush_velocity_rpm=15.0,
-            pen_color_depth_velocity_rpm=20.0,
-            pen_elevation_velocity_rpm=25.0,
-            canvas_direction=MotorDirection.CLOCKWISE,
-            pen_brush_direction=MotorDirection.CLOCKWISE,
-            pen_color_depth_direction=MotorDirection.COUNTER_CLOCKWISE,
-            pen_elevation_direction=MotorDirection.CLOCKWISE,
+            epoch=1,
+            motors={
+                MotorName.CANVAS.value: SingleMotorCommand(velocity_rpm=10.0, direction=MotorDirection.CLOCKWISE),
+                MotorName.PEN_BRUSH.value: SingleMotorCommand(velocity_rpm=15.0, direction=MotorDirection.CLOCKWISE),
+                MotorName.PEN_COLOR_DEPTH.value: SingleMotorCommand(velocity_rpm=20.0, direction=MotorDirection.COUNTER_CLOCKWISE),
+                MotorName.PEN_ELEVATION.value: SingleMotorCommand(velocity_rpm=25.0, direction=MotorDirection.CLOCKWISE),
+            },
+            source_data=source_data,
         )
         
         # Should not raise exception
@@ -71,17 +98,38 @@ class TestMotorDriver:
         """Test velocity limit validation."""
         driver = MotorDriver()
         
+        # Create mock source data
+        source_data = EthereumDataSnapshot(
+            timestamp=datetime.now().timestamp(),
+            epoch=1,
+            eth_price_usd=3000.0,
+            gas_price_gwei=25.0,
+            blob_space_utilization_percent=60.0,
+            block_fullness_percent=80.0,
+            data_quality=DataQuality(
+                price_data_fresh=True,
+                gas_data_fresh=True,
+                blob_data_fresh=True,
+                block_data_fresh=True,
+                overall_quality_score=0.9
+            ),
+            api_response_times=ApiResponseTimes(
+                coinbase_ms=150.0,
+                ethereum_rpc_ms=200.0,
+                beacon_chain_ms=180.0,
+            ),
+        )
+        
         # Commands exceeding velocity limit
         commands = MotorVelocityCommands(
-            session_id="test-session",
-            canvas_velocity_rpm=50.0,  # Exceeds default limit of 35.0
-            pen_brush_velocity_rpm=15.0,
-            pen_color_depth_velocity_rpm=20.0,
-            pen_elevation_velocity_rpm=25.0,
-            canvas_direction=MotorDirection.CLOCKWISE,
-            pen_brush_direction=MotorDirection.CLOCKWISE,
-            pen_color_depth_direction=MotorDirection.COUNTER_CLOCKWISE,
-            pen_elevation_direction=MotorDirection.CLOCKWISE,
+            epoch=1,
+            motors={
+                MotorName.CANVAS.value: SingleMotorCommand(velocity_rpm=50.0, direction=MotorDirection.CLOCKWISE),  # Exceeds default limit
+                MotorName.PEN_BRUSH.value: SingleMotorCommand(velocity_rpm=15.0, direction=MotorDirection.CLOCKWISE),
+                MotorName.PEN_COLOR_DEPTH.value: SingleMotorCommand(velocity_rpm=20.0, direction=MotorDirection.COUNTER_CLOCKWISE),
+                MotorName.PEN_ELEVATION.value: SingleMotorCommand(velocity_rpm=25.0, direction=MotorDirection.CLOCKWISE),
+            },
+            source_data=source_data,
         )
         
         with pytest.raises(MotorDriverError, match="exceeds max limit"):
@@ -144,17 +192,38 @@ class TestSafetyController:
         
         controller = SafetyController(limits)
         
+        # Create mock source data
+        source_data = EthereumDataSnapshot(
+            timestamp=datetime.now().timestamp(),
+            epoch=1,
+            eth_price_usd=3000.0,
+            gas_price_gwei=25.0,
+            blob_space_utilization_percent=60.0,
+            block_fullness_percent=80.0,
+            data_quality=DataQuality(
+                price_data_fresh=True,
+                gas_data_fresh=True,
+                blob_data_fresh=True,
+                block_data_fresh=True,
+                overall_quality_score=0.9
+            ),
+            api_response_times=ApiResponseTimes(
+                coinbase_ms=150.0,
+                ethereum_rpc_ms=200.0,
+                beacon_chain_ms=180.0,
+            ),
+        )
+        
         # Valid commands
         commands = MotorVelocityCommands(
-            session_id="test-session",
-            canvas_velocity_rpm=25.0,
-            pen_brush_velocity_rpm=15.0,
-            pen_color_depth_velocity_rpm=20.0,
-            pen_elevation_velocity_rpm=10.0,
-            canvas_direction=MotorDirection.CLOCKWISE,
-            pen_brush_direction=MotorDirection.CLOCKWISE,
-            pen_color_depth_direction=MotorDirection.COUNTER_CLOCKWISE,
-            pen_elevation_direction=MotorDirection.CLOCKWISE,
+            epoch=1,
+            motors={
+                MotorName.CANVAS.value: SingleMotorCommand(velocity_rpm=25.0, direction=MotorDirection.CLOCKWISE),
+                MotorName.PEN_BRUSH.value: SingleMotorCommand(velocity_rpm=15.0, direction=MotorDirection.CLOCKWISE),
+                MotorName.PEN_COLOR_DEPTH.value: SingleMotorCommand(velocity_rpm=20.0, direction=MotorDirection.COUNTER_CLOCKWISE),
+                MotorName.PEN_ELEVATION.value: SingleMotorCommand(velocity_rpm=10.0, direction=MotorDirection.CLOCKWISE),
+            },
+            source_data=source_data,
         )
         
         # Should validate successfully
@@ -174,17 +243,38 @@ class TestSafetyController:
         
         controller = SafetyController(limits)
         
+        # Create mock source data
+        source_data = EthereumDataSnapshot(
+            timestamp=datetime.now().timestamp(),
+            epoch=1,
+            eth_price_usd=3000.0,
+            gas_price_gwei=25.0,
+            blob_space_utilization_percent=60.0,
+            block_fullness_percent=80.0,
+            data_quality=DataQuality(
+                price_data_fresh=True,
+                gas_data_fresh=True,
+                blob_data_fresh=True,
+                block_data_fresh=True,
+                overall_quality_score=0.9
+            ),
+            api_response_times=ApiResponseTimes(
+                coinbase_ms=150.0,
+                ethereum_rpc_ms=200.0,
+                beacon_chain_ms=180.0,
+            ),
+        )
+        
         # Commands with velocity exceeding limit
         commands = MotorVelocityCommands(
-            session_id="test-session",
-            canvas_velocity_rpm=35.0,  # Exceeds limit of 30.0
-            pen_brush_velocity_rpm=15.0,
-            pen_color_depth_velocity_rpm=20.0,
-            pen_elevation_velocity_rpm=10.0,
-            canvas_direction=MotorDirection.CLOCKWISE,
-            pen_brush_direction=MotorDirection.CLOCKWISE,
-            pen_color_depth_direction=MotorDirection.COUNTER_CLOCKWISE,
-            pen_elevation_direction=MotorDirection.CLOCKWISE,
+            epoch=1,
+            motors={
+                MotorName.CANVAS.value: SingleMotorCommand(velocity_rpm=35.0, direction=MotorDirection.CLOCKWISE),  # Exceeds limit of 30.0
+                MotorName.PEN_BRUSH.value: SingleMotorCommand(velocity_rpm=15.0, direction=MotorDirection.CLOCKWISE),
+                MotorName.PEN_COLOR_DEPTH.value: SingleMotorCommand(velocity_rpm=20.0, direction=MotorDirection.COUNTER_CLOCKWISE),
+                MotorName.PEN_ELEVATION.value: SingleMotorCommand(velocity_rpm=10.0, direction=MotorDirection.CLOCKWISE),
+            },
+            source_data=source_data,
         )
         
         with pytest.raises(SafetyViolationError, match="velocity.*exceeds maximum"):
@@ -245,16 +335,37 @@ class TestHardwareInterface:
                 mock_send.return_value = True
                 mock_validate.return_value = True
                 
+                # Create mock source data
+                source_data = EthereumDataSnapshot(
+                    timestamp=datetime.now().timestamp(),
+                    epoch=1,
+                    eth_price_usd=3000.0,
+                    gas_price_gwei=25.0,
+                    blob_space_utilization_percent=60.0,
+                    block_fullness_percent=80.0,
+                    data_quality=DataQuality(
+                        price_data_fresh=True,
+                        gas_data_fresh=True,
+                        blob_data_fresh=True,
+                        block_data_fresh=True,
+                        overall_quality_score=0.9
+                    ),
+                    api_response_times=ApiResponseTimes(
+                        coinbase_ms=150.0,
+                        ethereum_rpc_ms=200.0,
+                        beacon_chain_ms=180.0,
+                    ),
+                )
+                
                 commands = MotorVelocityCommands(
-                    session_id="test-session",
-                    canvas_velocity_rpm=10.0,
-                    pen_brush_velocity_rpm=15.0,
-                    pen_color_depth_velocity_rpm=20.0,
-                    pen_elevation_velocity_rpm=25.0,
-                    canvas_direction=MotorDirection.CLOCKWISE,
-                    pen_brush_direction=MotorDirection.CLOCKWISE,
-                    pen_color_depth_direction=MotorDirection.COUNTER_CLOCKWISE,
-                    pen_elevation_direction=MotorDirection.CLOCKWISE,
+                    epoch=1,
+                    motors={
+                        MotorName.CANVAS.value: SingleMotorCommand(velocity_rpm=10.0, direction=MotorDirection.CLOCKWISE),
+                        MotorName.PEN_BRUSH.value: SingleMotorCommand(velocity_rpm=15.0, direction=MotorDirection.CLOCKWISE),
+                        MotorName.PEN_COLOR_DEPTH.value: SingleMotorCommand(velocity_rpm=20.0, direction=MotorDirection.COUNTER_CLOCKWISE),
+                        MotorName.PEN_ELEVATION.value: SingleMotorCommand(velocity_rpm=25.0, direction=MotorDirection.CLOCKWISE),
+                    },
+                    source_data=source_data,
                 )
                 
                 result = await interface.execute_motor_commands(commands)

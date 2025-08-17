@@ -17,6 +17,7 @@ from cloud.data_aggregator import (
 from shared.models.blockchain_data import (
     EthereumDataSnapshot,
     ApiResponseTimes,
+    DataQuality,
     MarketCondition,
     ActivityLevel,
 )
@@ -47,7 +48,7 @@ class TestBlockchainDataFetcher:
                     
                     # Setup mock returns
                     mock_coinbase.return_value = {"eth_price_usd": 2500.0, "coinbase_available": True}
-                    mock_ethereum.return_value = {"gas_price_gwei": 25.0, "network_congestion_percent": 60.0, "pending_transactions": 120000, "ethereum_rpc_available": True}
+                    mock_ethereum.return_value = {"gas_price_gwei": 25.0, "blob_space_utilization_percent": 60.0, "block_fullness_percent": 80.0, "ethereum_rpc_available": True}
                     mock_beacon.return_value = {"beacon_participation_rate": 96.5, "eth_staked_percent": 28.0, "validator_count": 580000, "beacon_chain_available": True}
                     
                     # Test fetch
@@ -56,8 +57,9 @@ class TestBlockchainDataFetcher:
                     assert isinstance(result, EthereumDataSnapshot)
                     assert result.eth_price_usd == 2500.0
                     assert result.gas_price_gwei == 25.0
-                    assert result.beacon_participation_rate == 96.5
-                    assert result.data_quality_score > 0
+                    assert result.blob_space_utilization_percent == 60.0
+                    assert result.block_fullness_percent == 80.0
+                    assert result.data_quality.overall_quality_score > 0
     
     @pytest.mark.asyncio
     async def test_fallback_data(self):
@@ -68,7 +70,7 @@ class TestBlockchainDataFetcher:
         fallback = await fetcher._create_fallback_snapshot()
         
         assert isinstance(fallback, EthereumDataSnapshot)
-        assert fallback.data_quality_score == 0.0  # Indicates fallback
+        assert fallback.data_quality.overall_quality_score == 0.0  # Indicates fallback
         assert fallback.eth_price_usd == fetcher._fallback_data["eth_price_usd"]
     
     def test_market_condition_determination(self):
@@ -123,18 +125,18 @@ class TestMotorCommandGenerator:
         # Create mock blockchain data
         mock_data = EthereumDataSnapshot(
             timestamp=datetime.now().timestamp(),
+            epoch=1337,
             eth_price_usd=3000.0,
             gas_price_gwei=25.0,
-            network_congestion_percent=60.0,
-            pending_transactions=120000,
-            beacon_participation_rate=96.5,
-            eth_staked_percent=28.0,
-            validator_count=580000,
-            market_condition=MarketCondition.BULL,
-            activity_level=ActivityLevel.MODERATE,
-            data_quality_score=100.0,
-            block_number=18500000,
-            epoch_number=12500,
+            blob_space_utilization_percent=60.0,
+            block_fullness_percent=80.0,
+            data_quality=DataQuality(
+                price_data_fresh=True,
+                gas_data_fresh=True,
+                blob_data_fresh=True,
+                block_data_fresh=True,
+                overall_quality_score=0.9
+            ),
             api_response_times=ApiResponseTimes(
                 coinbase_ms=150.0,
                 ethereum_rpc_ms=200.0,
