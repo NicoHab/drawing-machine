@@ -12,6 +12,10 @@ import threading
 from pathlib import Path
 from contextlib import contextmanager
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
+
 from auto_test_runner import FileWatcher, FileChangeEvent
 
 
