@@ -485,7 +485,7 @@ class TestCalculatorIntegration:
 
         # Main README
         #         readme = self._generate_readme(config) # TODO: Fix missing method
-        (project_dir / "README.md").write_text(f"# {config['name']}\n\nTDD Project")
+        (project_dir / "README.md").write_text(f"# {config.name}\n\nTDD Project")
 
         # TDD workflow documentation
         tdd_guide = self._generate_tdd_guide(config)
