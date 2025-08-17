@@ -217,9 +217,17 @@ class TestDataProcessor:
                 mock_data.timestamp = datetime.now().timestamp()
                 mock_fetch.return_value = mock_data
                 
-                # Setup mock commands
+                # Setup mock commands with all required motors
+                from shared.models.motor_commands import MotorName, MotorDirection, SingleMotorCommand
+                
                 mock_commands = MagicMock()
                 mock_commands.epoch = 1
+                mock_commands.motors = {
+                    MotorName.CANVAS.value: SingleMotorCommand(velocity_rpm=10.0, direction=MotorDirection.CLOCKWISE),
+                    MotorName.PEN_BRUSH.value: SingleMotorCommand(velocity_rpm=15.0, direction=MotorDirection.CLOCKWISE),
+                    MotorName.PEN_COLOR_DEPTH.value: SingleMotorCommand(velocity_rpm=20.0, direction=MotorDirection.CLOCKWISE),
+                    MotorName.PEN_ELEVATION.value: SingleMotorCommand(velocity_rpm=25.0, direction=MotorDirection.CLOCKWISE),
+                }
                 mock_generate.return_value = mock_commands
                 
                 # Test processing
@@ -260,7 +268,16 @@ class TestDataProcessor:
                 mock_data = MagicMock(spec=EthereumDataSnapshot)
                 mock_fetch.return_value = mock_data
                 
+                # Setup mock commands with all required motors for batch processing
+                from shared.models.motor_commands import MotorName, MotorDirection, SingleMotorCommand
+                
                 mock_commands = MagicMock()
+                mock_commands.motors = {
+                    MotorName.CANVAS.value: SingleMotorCommand(velocity_rpm=10.0, direction=MotorDirection.CLOCKWISE),
+                    MotorName.PEN_BRUSH.value: SingleMotorCommand(velocity_rpm=15.0, direction=MotorDirection.CLOCKWISE),
+                    MotorName.PEN_COLOR_DEPTH.value: SingleMotorCommand(velocity_rpm=20.0, direction=MotorDirection.CLOCKWISE),
+                    MotorName.PEN_ELEVATION.value: SingleMotorCommand(velocity_rpm=25.0, direction=MotorDirection.CLOCKWISE),
+                }
                 mock_generate.return_value = mock_commands
                 
                 results = await processor.process_batch(epochs)

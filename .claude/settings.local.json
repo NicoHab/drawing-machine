@@ -4,7 +4,8 @@
       "Bash(python:*)",
       "Bash(del test_recursion_fix.py)",
       "Bash(grep:*)",
-      "Bash(poetry run pytest:*)"
+      "Bash(poetry run pytest:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
