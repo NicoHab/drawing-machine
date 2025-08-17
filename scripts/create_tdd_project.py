@@ -501,14 +501,14 @@ class TestCalculatorIntegration:
     def _generate_tdd_guide(self, config: ProjectConfig) -> str:
         """
         Generate TDD workflow documentation.
-        
+
         Args:
             config: Project configuration
-            
+
         Returns:
             TDD workflow documentation content
         """
-        return f'''# TDD Workflow Guide for {config.name}
+        return f"""# TDD Workflow Guide for {config.name}
 
 ## Overview
 
@@ -730,19 +730,19 @@ For questions about this TDD setup, refer to:
 - Test examples in the `tests/` directory
 - VS Code tasks for common operations
 - Auto-test runner for continuous feedback
-'''
+"""
 
     def _generate_api_docs(self, config: ProjectConfig) -> str:
         """
         Generate API documentation template.
-        
+
         Args:
             config: Project configuration
-            
+
         Returns:
             API documentation content
         """
-        return f'''# API Documentation for {config.name}
+        return f"""# API Documentation for {config.name}
 
 ## Overview
 
@@ -1135,7 +1135,7 @@ For API support:
 - Check the test files in `tests/api/` for usage examples
 - Refer to the FastAPI documentation
 - Use the interactive docs at `/docs` for testing
-'''
+"""
 
     def _get_template_specific_guidance(self, config: ProjectConfig) -> str:
         """Get template-specific TDD guidance."""

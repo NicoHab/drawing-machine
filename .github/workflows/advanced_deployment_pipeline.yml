@@ -137,7 +137,7 @@ jobs:
           poetry run black --check --diff shared/ scripts/ tests/ &
           STATIC_PID1=$!
           
-          poetry run ruff check shared/ scripts/ tests/ --format=github &
+          poetry run ruff check shared/ scripts/ tests/ &
           STATIC_PID2=$!
           
           poetry run mypy shared/ scripts/ --ignore-missing-imports &
