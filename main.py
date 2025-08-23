@@ -105,27 +105,37 @@ async def start_blockchain_service():
                     continue
                 
                 # Process blockchain data
-                result = await processor.process_latest_block()
+                result = await processor.process_current_data()
                 
-                if result and hasattr(result, 'to_execution_format'):
-                    block_number = getattr(result, 'block_number', 'N/A')
+                if result and result.motors:
+                    # Get latest blockchain snapshot for display data
+                    snapshot = processor.fetcher.get_latest_cached_data()
                     
-                    if block_number != current_block:
-                        current_block = block_number
+                    if snapshot:
+                        block_number = getattr(snapshot, 'block_number', 'N/A')
                         
-                        # Generate motor commands
-                        motor_commands = result.to_execution_format()
-                        
-                        # Get blockchain data
-                        blockchain_data = {
-                            "eth_price_usd": getattr(result, 'eth_price_usd', 0),
-                            "gas_price_gwei": getattr(result, 'gas_price_gwei', 0),
-                            "blob_space_utilization_percent": getattr(result, 'blob_space_utilization_percent', 0),
-                            "block_fullness_percent": getattr(result, 'block_fullness_percent', 0),
-                            "block_number": block_number,
-                            "epoch": getattr(result, 'epoch', 'N/A'),
-                            "data_sources": getattr(result, 'data_sources', {})
-                        }
+                        if block_number != current_block:
+                            current_block = block_number
+                            
+                            # Convert motor commands to execution format
+                            motor_commands = {}
+                            for motor_name, motor_cmd in result.motors.items():
+                                motor_commands[motor_name] = {
+                                    "velocity_rpm": motor_cmd.velocity_rpm,
+                                    "direction": motor_cmd.direction.value,
+                                    "duration_seconds": motor_cmd.duration_seconds
+                                }
+                            
+                            # Get blockchain data for display
+                            blockchain_data = {
+                                "eth_price_usd": getattr(snapshot, 'eth_price_usd', 0),
+                                "gas_price_gwei": getattr(snapshot, 'gas_price_gwei', 0),
+                                "blob_space_utilization_percent": getattr(snapshot, 'blob_space_utilization_percent', 0),
+                                "block_fullness_percent": getattr(snapshot, 'block_fullness_percent', 0),
+                                "block_number": block_number,
+                                "epoch": getattr(snapshot, 'epoch', 'N/A'),
+                                "data_sources": getattr(snapshot, 'data_sources', {})
+                            }
                         
                         logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
                                    f"Gas={blockchain_data['gas_price_gwei']:.1f} gwei")
