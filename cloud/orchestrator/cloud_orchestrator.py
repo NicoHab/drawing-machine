@@ -244,24 +244,60 @@ class CloudOrchestrator:
             await self._send_error(client_id, f"Message handling error: {str(e)}")
     
     async def _handle_authenticate(self, client_id: str, data: Dict):
-        """Handle client authentication."""
+        """Handle client authentication with API key verification."""
+        import os
+        
         client = self.clients.get(client_id)
         if not client:
             return
         
-        client.client_type = data.get("client_type", "web_ui")
-        client.user_info = data.get("user_info", {})
+        # Check for API key authentication
+        provided_key = data.get("api_key", "")
+        required_key = os.environ.get("DRAWING_MACHINE_API_KEY", "")
         
-        await self._send_to_client(client_id, {
-            "type": "authenticated",
-            "client_id": client_id,
-            "server_time": time.time()
-        })
+        if not required_key:
+            # No API key set - allow basic web UI access but disable API calls
+            client.authenticated = False
+            client.client_type = data.get("client_type", "web_ui")
+            client.user_info = data.get("user_info", {})
+            
+            await self._send_to_client(client_id, {
+                "type": "authenticated",
+                "client_id": client_id,
+                "server_time": time.time(),
+                "api_access": False,
+                "message": "Demo mode - blockchain API disabled for cost control"
+            })
+            
+        elif provided_key == required_key:
+            # Valid API key - full access
+            client.authenticated = True
+            client.client_type = data.get("client_type", "web_ui")
+            client.user_info = data.get("user_info", {})
+            
+            await self._send_to_client(client_id, {
+                "type": "authenticated",
+                "client_id": client_id,
+                "server_time": time.time(),
+                "api_access": True,
+                "message": "Full access - blockchain API enabled"
+            })
+            
+        else:
+            # Invalid API key
+            client.authenticated = False
+            await self._send_to_client(client_id, {
+                "type": "authentication_failed",
+                "client_id": client_id,
+                "message": "Invalid API key - access denied"
+            })
+            return
         
         # Send initial system state to client
         await self._send_system_state_to_client(client_id)
         
-        self.logger.info(f"Client {client_id} authenticated as {client.client_type}")
+        access_level = "full" if getattr(client, 'authenticated', False) else "demo"
+        self.logger.info(f"Client {client_id} authenticated as {client.client_type} with {access_level} access")
     
     async def _handle_create_session(self, client_id: str, data: Dict):
         """Handle session creation request."""

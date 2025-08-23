@@ -19,6 +19,7 @@ let lastModeChangeTime = 0
 
 // Connection settings - Environment configurable
 const wsUrl = ref(import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8768')
+const apiKey = ref('')
 
 // Connect to WebSocket server
 const connect = () => {
@@ -37,7 +38,8 @@ const connect = () => {
     ws.value?.send(JSON.stringify({
       type: 'authenticate',
       client_type: 'web_ui',
-      user_info: {}
+      user_info: {},
+      api_key: apiKey.value
     }))
   }
 
@@ -74,7 +76,10 @@ const handleMessage = (data: any) => {
   
   switch (data.type) {
     case 'authenticated':
-      console.log('Successfully authenticated with server')
+      console.log('Successfully authenticated with server:', data.message)
+      if (data.api_access === false) {
+        alert('Demo mode: Blockchain API disabled for cost control. Enter API key to enable live data.')
+      }
       break
       
     case 'system_state':
@@ -277,6 +282,12 @@ onUnmounted(() => {
           <input 
             v-model="wsUrl" 
             placeholder="WebSocket URL"
+            :disabled="connectionStatus === 'connected'"
+          />
+          <input 
+            v-model="apiKey" 
+            placeholder="API Key (optional - for blockchain data)"
+            type="password"
             :disabled="connectionStatus === 'connected'"
           />
           <button @click="connect" :disabled="connectionStatus === 'connected'">

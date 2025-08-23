@@ -91,6 +91,17 @@ async def start_blockchain_service():
     import socket
     import json
     
+    # Check if API usage is authorized
+    api_auth_key = os.environ.get('DRAWING_MACHINE_API_KEY', '')
+    if not api_auth_key:
+        logger.warning("No DRAWING_MACHINE_API_KEY set - blockchain processing disabled for API cost control")
+        logger.info("To enable: Set DRAWING_MACHINE_API_KEY environment variable in Railway")
+        # Return a dummy task that does nothing
+        async def dummy_loop():
+            while True:
+                await asyncio.sleep(60)
+        return asyncio.create_task(dummy_loop())
+    
     processor = DataProcessor()
     
     async def blockchain_loop():
