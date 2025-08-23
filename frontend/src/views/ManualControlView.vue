@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import MotorControl from '../components/MotorControl.vue'
-import SessionRecorder from '../components/SessionRecorder.vue'
-import ModeSelector from '../components/ModeSelector.vue'
+import MotorVisualization from '../components/MotorVisualization.vue'
 
 // WebSocket connection
 const ws = ref<WebSocket | null>(null)
@@ -11,14 +10,15 @@ const connectionStatus = ref<'disconnected' | 'connecting' | 'connected'>('disco
 // System state
 const systemState = reactive({
   mode: 'manual',
-  emergencyStopped: false,
   motorStates: {} as Record<string, any>,
-  safetyLimits: {} as Record<string, number>,
-  recordingActive: false
+  blockchainData: null as any
 })
 
-// Connection settings - use environment variable with fallback
-const wsUrl = ref(import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:8766')
+// Debounce mode changes to prevent loops
+let lastModeChangeTime = 0
+
+// Connection settings - Environment configurable
+const wsUrl = ref(import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8768')
 
 // Connect to WebSocket server
 const connect = () => {
@@ -31,7 +31,14 @@ const connect = () => {
 
   ws.value.onopen = () => {
     connectionStatus.value = 'connected'
-    console.log('Connected to manual control server')
+    console.log(`Connected to server at ${wsUrl.value}`)
+    
+    // Send authentication immediately
+    ws.value?.send(JSON.stringify({
+      type: 'authenticate',
+      client_type: 'web_ui',
+      user_info: {}
+    }))
   }
 
   ws.value.onmessage = (event) => {
@@ -63,27 +70,57 @@ const disconnect = () => {
 
 // Handle incoming WebSocket messages
 const handleMessage = (data: any) => {
+  console.log(`Received message type: ${data.type}`, data)
+  
   switch (data.type) {
+    case 'authenticated':
+      console.log('Successfully authenticated with server')
+      break
+      
     case 'system_state':
+      console.log('Updating system state:', data)
       Object.assign(systemState, {
         mode: data.mode,
-        emergencyStopped: data.emergency_stopped,
-        motorStates: data.motor_states,
-        safetyLimits: data.safety_limits,
-        recordingActive: data.recording_active
+        motorStates: data.motor_states || {
+          motor_canvas: { velocity_rpm: 0, direction: 'CW', last_update: Date.now()/1000, is_enabled: true },
+          motor_pb: { velocity_rpm: 0, direction: 'CW', last_update: Date.now()/1000, is_enabled: true },
+          motor_pcd: { velocity_rpm: 0, direction: 'CW', last_update: Date.now()/1000, is_enabled: true },
+          motor_pe: { velocity_rpm: 0, direction: 'CW', last_update: Date.now()/1000, is_enabled: true }
+        }
       })
+      
+      // If we're in manual mode and just received system state, ensure motors are initialized
+      if (data.mode === 'manual' && data.motor_states) {
+        console.log('Manual mode detected - ensuring motor states are active')
+      }
       break
     
     case 'motor_update':
       systemState.motorStates[data.motor_name] = data.state
       break
     
-    case 'emergency_stop':
-      systemState.emergencyStopped = true
-      alert('EMERGENCY STOP ACTIVATED')
+    case 'motor_command_executed':
+      // Update our motor states when commands are executed
+      if (data.command) {
+        const motorName = data.command.motor_name
+        if (motorName && systemState.motorStates[motorName]) {
+          systemState.motorStates[motorName].velocity_rpm = data.command.velocity_rpm || 0
+          systemState.motorStates[motorName].direction = data.command.direction || 'CW'
+          systemState.motorStates[motorName].last_update = data.timestamp || Date.now()/1000
+          console.log(`Updated ${motorName} state: ${data.command.velocity_rpm} RPM ${data.command.direction}`)
+        }
+      }
       break
     
+    case 'blockchain_data_update':
+      // Update blockchain data for visualization
+      systemState.blockchainData = data.blockchain_data
+      console.log('Received blockchain data update:', data.blockchain_data)
+      break
+    
+    
     case 'mode_changed':
+      console.log('Mode changed to:', data.new_mode)
       systemState.mode = data.new_mode
       break
     
@@ -93,16 +130,17 @@ const handleMessage = (data: any) => {
       break
     
     default:
-      console.log('Received message:', data)
+      console.log('Received unhandled message:', data)
   }
 }
 
 // Send message to server
 const sendMessage = (message: any) => {
   if (ws.value?.readyState === WebSocket.OPEN) {
+    console.log('Sending message:', message)
     ws.value.send(JSON.stringify(message))
   } else {
-    console.error('WebSocket not connected')
+    console.error('WebSocket not connected, cannot send:', message)
   }
 }
 
@@ -117,27 +155,100 @@ const sendMotorCommand = (motorName: string, velocityRpm: number, direction: str
   })
 }
 
-const emergencyStop = () => {
-  sendMessage({ type: 'emergency_stop' })
-}
 
 const changeMode = (newMode: string) => {
+  // Prevent unnecessary mode changes
+  if (newMode === systemState.mode) {
+    console.log(`Mode change ignored - already in ${newMode} mode`)
+    return
+  }
+  
+  // Debounce rapid mode changes (prevent loops)
+  const now = Date.now()
+  if (now - lastModeChangeTime < 2000) {
+    console.log(`Mode change ignored - too recent (${now - lastModeChangeTime}ms ago)`)
+    return
+  }
+  lastModeChangeTime = now
+  
+  console.log(`User initiated mode change: ${systemState.mode} → ${newMode}`)
+  
+  // Send mode change
   sendMessage({
     type: 'mode_change',
     mode: newMode
   })
+  
+  // CRITICAL: When switching to manual mode, request last motor states and send as manual commands
+  // This ensures smooth transition with actual motor positions from auto mode
+  if (newMode === 'manual') {
+    console.log('Switching to manual - requesting last motor states for smooth transition')
+    
+    // Request last motor states from server
+    sendMessage({
+      type: 'get_last_motor_states'
+    })
+    
+    // The server will respond with last states, then we'll send them as manual commands
+    // If no response, use current states as fallback after delay
+    setTimeout(() => {
+      // Fallback: Send current motor states if we haven't received updates
+      if (Object.values(systemState.motorStates).every((state: any) => state.velocity_rpm === 0)) {
+        console.log('No motor states received, using defaults')
+        // Set some default values to establish manual control
+        const defaultMotorStates = {
+          motor_canvas: { velocity_rpm: 10, direction: 'CW' },
+          motor_pb: { velocity_rpm: 5, direction: 'CW' },
+          motor_pcd: { velocity_rpm: 5, direction: 'CW' },
+          motor_pe: { velocity_rpm: 5, direction: 'CW' }
+        }
+        
+        Object.entries(defaultMotorStates).forEach(([motorName, state]) => {
+          console.log(`Sending default manual command for ${motorName}: ${state.velocity_rpm} RPM ${state.direction}`)
+          sendMessage({
+            type: 'motor_command',
+            motor_name: motorName,
+            velocity_rpm: state.velocity_rpm,
+            direction: state.direction,
+            source: 'manual'
+          })
+        })
+      } else {
+        // Use actual motor states if available
+        Object.entries(systemState.motorStates).forEach(([motorName, state]: [string, any]) => {
+          const velocity = state?.velocity_rpm || 10
+          const direction = state?.direction || 'CW'
+          
+          console.log(`Sending manual command for ${motorName}: ${velocity} RPM ${direction}`)
+          sendMessage({
+            type: 'motor_command',
+            motor_name: motorName,
+            velocity_rpm: velocity,
+            direction: direction,
+            source: 'manual'
+          })
+        })
+      }
+    }, 1000)
+  }
 }
 
-// Session recording functions
-const startRecording = (sessionName: string) => {
-  sendMessage({
-    type: 'start_recording',
-    session_name: sessionName
-  })
+
+// Helper functions for display
+const getMotorDisplayName = (motorName: string) => {
+  const nameMap: Record<string, string> = {
+    'motor_canvas': 'Canvas',
+    'motor_pb': 'PB',
+    'motor_pcd': 'PCD', 
+    'motor_pe': 'PE'
+  }
+  return nameMap[motorName] || motorName
 }
 
-const stopRecording = () => {
-  sendMessage({ type: 'stop_recording' })
+const getLastUpdateText = (state: any) => {
+  if (!state?.last_update) return 'Never'
+  const seconds = Math.floor((Date.now() / 1000) - state.last_update)
+  return seconds < 60 ? `${seconds}s ago` : `${Math.floor(seconds / 60)}m ago`
 }
 
 // Lifecycle
@@ -179,28 +290,37 @@ onUnmounted(() => {
     </header>
 
     <div v-if="connectionStatus === 'connected'" class="control-panel">
-      <!-- Mode Selector -->
-      <ModeSelector 
-        :current-mode="systemState.mode"
-        @mode-change="changeMode"
+      <!-- Simple Mode Buttons (More Reliable) -->
+      <div class="simple-mode-selector">
+        <h2>Control Mode</h2>
+        <div class="mode-buttons">
+          <button 
+            class="mode-btn"
+            :class="{ active: systemState.mode === 'manual' }"
+            @click.stop.prevent="changeMode('manual')"
+          >
+            🎮 Manual Control
+          </button>
+          <button 
+            class="mode-btn"
+            :class="{ active: systemState.mode === 'auto' }"
+            @click.stop.prevent="changeMode('auto')"
+          >
+            ⛓️ Auto Blockchain
+          </button>
+        </div>
+        <p class="current-mode">Current Mode: <strong>{{ systemState.mode?.toUpperCase() || 'UNKNOWN' }}</strong></p>
+      </div>
+      
+      <!-- Real-time Motor Visualization -->
+      <MotorVisualization
+        :motor-states="systemState.motorStates"
+        :blockchain-data="systemState.blockchainData"
+        :is-active="connectionStatus === 'connected'"
       />
 
-      <!-- Emergency Stop -->
-      <div class="emergency-section">
-        <button 
-          class="emergency-stop"
-          :class="{ active: systemState.emergencyStopped }"
-          @click="emergencyStop"
-        >
-          🛑 EMERGENCY STOP
-        </button>
-        <p v-if="systemState.emergencyStopped" class="emergency-message">
-          System in emergency stop state. Change mode to reset.
-        </p>
-      </div>
-
-      <!-- Motor Controls -->
-      <div class="motors-section">
+      <!-- Motor Controls (Only visible in manual mode) -->
+      <div v-if="systemState.mode === 'manual'" class="motors-section">
         <h2>Motor Controls</h2>
         <div class="motors-grid">
           <MotorControl
@@ -208,20 +328,42 @@ onUnmounted(() => {
             :key="motorName"
             :motor-name="motorName"
             :motor-state="state"
-            :safety-limit="systemState.safetyLimits[motorName.replace('motor_', '') + '_max'] || 100"
-            :disabled="systemState.emergencyStopped"
+            :safety-limit="100"
+            :disabled="false"
             @motor-command="sendMotorCommand"
           />
         </div>
       </div>
 
-      <!-- Session Recording -->
-      <SessionRecorder
-        :recording-active="systemState.recordingActive"
-        @start-recording="startRecording"
-        @stop-recording="stopRecording"
-        @send-message="sendMessage"
-      />
+      <!-- Auto Mode Display (Only visible in auto mode) -->
+      <div v-else-if="systemState.mode === 'auto'" class="auto-mode-section">
+        <h2>🔗 Auto-Blockchain Mode Active</h2>
+        <p class="auto-description">
+          Motors are being controlled automatically by live blockchain data. 
+          Switch to Manual mode to take direct control.
+        </p>
+        
+        <!-- Motor Status Display (read-only) -->
+        <div class="motor-status-grid">
+          <div 
+            v-for="(state, motorName) in systemState.motorStates"
+            :key="motorName"
+            class="motor-status-card"
+          >
+            <h4>{{ getMotorDisplayName(motorName) }}</h4>
+            <div class="status-value">
+              <span class="rpm-display">{{ 
+                state?.direction === 'CCW' 
+                  ? '-' + (state?.velocity_rpm?.toFixed(1) || '0')
+                  : (state?.velocity_rpm?.toFixed(1) || '0')
+              }}</span>
+              <span class="rpm-unit">RPM</span>
+            </div>
+            <div class="last-update">{{ getLastUpdateText(state) }}</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div v-else class="connecting-message">
@@ -325,42 +467,6 @@ onUnmounted(() => {
   gap: 30px;
 }
 
-.emergency-section {
-  text-align: center;
-}
-
-.emergency-stop {
-  font-size: 18px;
-  font-weight: bold;
-  padding: 15px 30px;
-  border: none;
-  border-radius: 8px;
-  background: #e74c3c;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.emergency-stop:hover {
-  background: #c0392b;
-  transform: scale(1.05);
-}
-
-.emergency-stop.active {
-  background: #8e44ad;
-  animation: flash 1s infinite;
-}
-
-@keyframes flash {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.emergency-message {
-  color: #e74c3c;
-  font-weight: bold;
-  margin-top: 10px;
-}
 
 .motors-section h2 {
   color: #2c3e50;
@@ -380,6 +486,132 @@ onUnmounted(() => {
   font-size: 18px;
 }
 
+.simple-mode-selector {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.simple-mode-selector h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.mode-btn:hover {
+  background: #f8f9fa;
+  border-color: #3498db;
+}
+
+.mode-btn.active {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+.mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-mode {
+  text-align: center;
+  color: #6c757d;
+  margin: 0;
+}
+
+.current-mode strong {
+  color: #2c3e50;
+}
+
+.auto-mode-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 30px;
+  color: white;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.auto-mode-section h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 24px;
+}
+
+.auto-description {
+  font-size: 16px;
+  opacity: 0.9;
+  margin-bottom: 25px;
+  line-height: 1.5;
+}
+
+.motor-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.motor-status-card {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.motor-status-card h4 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.status-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rpm-display {
+  font-size: 20px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+}
+
+.rpm-unit {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.last-update {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+
 @media (max-width: 768px) {
   .connection-status {
     flex-direction: column;
@@ -397,6 +629,10 @@ onUnmounted(() => {
   
   .motors-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .mode-buttons {
+    flex-direction: column;
   }
 }
 </style>

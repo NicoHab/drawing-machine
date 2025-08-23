@@ -58,9 +58,57 @@ class MotorCommandGenerator:
             "pen_elevation_staking_sensitivity": 0.8,  # RPM per % staked
             "pen_elevation_baseline_rpm": 6.0,
             
+            # Utilization-based RPM mapping for blob and block motors
+            "utilization_target_percent": 50.0,      # Target utilization (0 RPM point)
+            "utilization_max_cw_rpm": 10.0,         # Max RPM at 100% utilization (CW)
+            "utilization_max_ccw_rpm": 10.0,        # Max RPM at 0% utilization (CCW)
+            "utilization_min_percent": 0.0,         # Minimum utilization
+            "utilization_max_percent": 100.0,       # Maximum utilization
+            
             # Safety margins
             "safety_margin_percent": 0.1,  # 10% safety margin from max RPM
         }
+    
+    def _calculate_utilization_based_motor(self, utilization_percent: float) -> tuple[float, MotorDirection]:
+        """
+        Calculate RPM and direction based on utilization percentage using linear mapping.
+        
+        Linear mapping:
+        - 0% utilization = max_ccw_rpm CCW
+        - target_percent (50%) = 0 RPM 
+        - 100% utilization = max_cw_rpm CW
+        
+        Args:
+            utilization_percent: Network utilization percentage (0-100)
+            
+        Returns:
+            tuple: (velocity_rpm, direction)
+        """
+        target = self.config["utilization_target_percent"]
+        max_cw_rpm = self.config["utilization_max_cw_rpm"] 
+        max_ccw_rpm = self.config["utilization_max_ccw_rpm"]
+        
+        # Clamp utilization to valid range
+        util = max(0.0, min(100.0, utilization_percent))
+        
+        if util >= target:
+            # Above target: 0 RPM at target, max_cw_rpm at 100%
+            # Linear interpolation: rpm = (util - target) / (100 - target) * max_cw_rpm
+            if target >= 100.0:  # Edge case
+                velocity_rpm = 0.0
+            else:
+                velocity_rpm = (util - target) / (100.0 - target) * max_cw_rpm
+            direction = MotorDirection.CLOCKWISE
+        else:
+            # Below target: max_ccw_rpm at 0%, 0 RPM at target
+            # Linear interpolation: rpm = (target - util) / target * max_ccw_rpm
+            if target <= 0.0:  # Edge case
+                velocity_rpm = 0.0
+            else:
+                velocity_rpm = (target - util) / target * max_ccw_rpm
+            direction = MotorDirection.COUNTER_CLOCKWISE
+        
+        return abs(velocity_rpm), direction
     
     async def generate_commands(
         self, 
@@ -163,16 +211,10 @@ class MotorCommandGenerator:
         )
     
     async def _generate_color_depth_command(self, data: EthereumDataSnapshot) -> SingleMotorCommand:
-        """Generate color depth motor command based on network congestion."""
-        # Map network congestion to color intensity
-        # Higher congestion = deeper colors
-        congestion_factor = data.blob_space_utilization_percent * self.config["color_depth_congestion_sensitivity"]
-        base_rpm = self.config["color_depth_baseline_rpm"]
-        
-        velocity_rpm = base_rpm + (congestion_factor / 10.0)  # Scale down congestion impact
-        
-        # Always clockwise for color depth
-        direction = MotorDirection.CLOCKWISE
+        """Generate color depth motor command based on blob space utilization."""
+        # Use utilization-based RPM calculation
+        # 0% = 2 RPM CCW, 50% = 0 RPM, 100% = 10 RPM CW
+        velocity_rpm, direction = self._calculate_utilization_based_motor(data.blob_space_utilization_percent)
         
         return SingleMotorCommand(
             velocity_rpm=velocity_rpm,
@@ -180,16 +222,10 @@ class MotorCommandGenerator:
         )
     
     async def _generate_pen_elevation_command(self, data: EthereumDataSnapshot) -> SingleMotorCommand:
-        """Generate pen elevation motor command based on staking metrics."""
-        # Map ETH staking percentage to pen height
-        # Higher staking = higher pen elevation
-        staking_factor = data.block_fullness_percent * self.config["pen_elevation_staking_sensitivity"]
-        base_rpm = self.config["pen_elevation_baseline_rpm"]
-        
-        velocity_rpm = base_rpm + (staking_factor / 10.0)  # Scale down staking impact
-        
-        # Beacon chain participation affects direction
-        direction = MotorDirection.CLOCKWISE if data.block_fullness_percent > 80.0 else MotorDirection.COUNTER_CLOCKWISE
+        """Generate pen elevation motor command based on block fullness."""
+        # Use utilization-based RPM calculation
+        # 0% = 2 RPM CCW, 50% = 0 RPM, 100% = 10 RPM CW
+        velocity_rpm, direction = self._calculate_utilization_based_motor(data.block_fullness_percent)
         
         return SingleMotorCommand(
             velocity_rpm=velocity_rpm,

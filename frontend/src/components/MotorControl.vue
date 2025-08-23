@@ -36,10 +36,10 @@ watch(() => props.motorState, (newState) => {
 // Computed properties
 const motorDisplayName = computed(() => {
   const nameMap: Record<string, string> = {
-    'motor_canvas': 'Canvas Motor',
-    'motor_pb': 'Pen Brush',
-    'motor_pcd': 'Pen Color Depth', 
-    'motor_pe': 'Pen Elevation'
+    'motor_canvas': 'Canvas',
+    'motor_pb': 'PB',
+    'motor_pcd': 'PCD', 
+    'motor_pe': 'PE'
   }
   return nameMap[props.motorName] || props.motorName
 })
@@ -55,29 +55,24 @@ const lastUpdateText = computed(() => {
 })
 
 // Methods
-const sendCommand = () => {
-  emit('motorCommand', props.motorName, velocity.value, direction.value)
+const sendCommand = (rpm: number) => {
+  // Negative RPM = CCW, Positive RPM = CW
+  const actualVelocity = Math.abs(rpm)
+  const actualDirection = rpm >= 0 ? 'CW' : 'CCW'
+  
+  velocity.value = actualVelocity
+  direction.value = actualDirection
+  
+  emit('motorCommand', props.motorName, actualVelocity, actualDirection)
 }
 
 const stopMotor = () => {
-  velocity.value = 0
-  emit('motorCommand', props.motorName, 0, direction.value)
+  sendCommand(0)
 }
 
-const onVelocityChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  velocity.value = parseFloat(target.value)
-  sendCommand()
-}
-
-const onDirectionChange = () => {
-  sendCommand()
-}
-
-// Preset velocity buttons
+// Preset velocity buttons - negative values mean CCW
 const setPresetVelocity = (preset: number) => {
-  velocity.value = preset
-  sendCommand()
+  sendCommand(preset)
 }
 </script>
 
@@ -97,105 +92,59 @@ const setPresetVelocity = (preset: number) => {
     <div class="motor-controls">
       <!-- Current State Display -->
       <div class="current-state">
-        <div class="state-item">
-          <label>Current RPM:</label>
-          <span class="rpm-value">{{ motorState?.velocity_rpm?.toFixed(1) || 0 }}</span>
-        </div>
-        <div class="state-item">
-          <label>Direction:</label>
-          <span class="direction-value">{{ motorState?.direction || 'CW' }}</span>
-        </div>
-      </div>
-
-      <!-- Velocity Control -->
-      <div class="velocity-control">
-        <label>Target Velocity (RPM)</label>
-        <div class="velocity-input-group">
-          <input
-            type="range"
-            :min="-safetyLimit"
-            :max="safetyLimit"
-            :step="0.1"
-            v-model.number="velocity"
-            :disabled="disabled || !motorState?.is_enabled"
-            @input="onVelocityChange"
-            class="velocity-slider"
-          />
-          <input
-            type="number"
-            :min="-safetyLimit"
-            :max="safetyLimit"
-            :step="0.1"
-            v-model.number="velocity"
-            :disabled="disabled || !motorState?.is_enabled"
-            @change="sendCommand"
-            class="velocity-input"
-          />
-        </div>
-        <div class="velocity-range">
-          <span>-{{ safetyLimit }}</span>
-          <span>{{ safetyLimit }}</span>
-        </div>
-      </div>
-
-      <!-- Direction Control -->
-      <div class="direction-control">
-        <label>Direction</label>
-        <div class="direction-buttons">
-          <button
-            :class="{ active: direction === 'CW' }"
-            :disabled="disabled || !motorState?.is_enabled"
-            @click="direction = 'CW'; onDirectionChange()"
-          >
-            ↻ CW
-          </button>
-          <button
-            :class="{ active: direction === 'CCW' }"
-            :disabled="disabled || !motorState?.is_enabled"
-            @click="direction = 'CCW'; onDirectionChange()"
-          >
-            ↺ CCW
-          </button>
+        <div class="state-value">
+          <span class="rpm-value">{{ 
+            motorState?.direction === 'CCW' 
+              ? '-' + (motorState?.velocity_rpm?.toFixed(1) || '0')
+              : (motorState?.velocity_rpm?.toFixed(1) || '0')
+          }}</span>
+          <span class="rpm-unit">RPM</span>
         </div>
       </div>
 
       <!-- Preset Buttons -->
       <div class="preset-controls">
-        <label>Quick Presets</label>
-        <div class="preset-buttons">
+        <div class="preset-grid">
+          <!-- Negative presets (CCW) -->
           <button
-            v-for="preset in [0, 10, 25, 50, -10, -25]"
+            v-for="preset in [-20, -18, -16, -14, -12, -10, -8, -6, -4, -2]"
             :key="preset"
             :disabled="disabled || !motorState?.is_enabled"
             @click="setPresetVelocity(preset)"
-            class="preset-btn"
+            class="preset-btn negative"
             :class="{ 
-              active: Math.abs(velocity - preset) < 0.1,
-              negative: preset < 0
+              active: motorState?.direction === 'CCW' && Math.abs(motorState?.velocity_rpm - Math.abs(preset)) < 0.1
             }"
           >
             {{ preset }}
           </button>
+          
+          <!-- Stop button -->
+          <button
+            :disabled="disabled"
+            @click="stopMotor"
+            class="preset-btn stop"
+            :class="{ active: Math.abs(motorState?.velocity_rpm || 0) < 0.1 }"
+          >
+            0
+          </button>
+          
+          <!-- Positive presets (CW) -->
+          <button
+            v-for="preset in [2, 4, 6, 8, 10, 12, 14, 16, 18, 20]"
+            :key="preset"
+            :disabled="disabled || !motorState?.is_enabled"
+            @click="setPresetVelocity(preset)"
+            class="preset-btn positive"
+            :class="{ 
+              active: motorState?.direction === 'CW' && Math.abs(motorState?.velocity_rpm - preset) < 0.1
+            }"
+          >
+            +{{ preset }}
+          </button>
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="action-buttons">
-        <button
-          class="stop-btn"
-          :disabled="disabled"
-          @click="stopMotor"
-        >
-          ⏹ STOP
-        </button>
-        <button
-          class="send-btn"
-          :disabled="disabled || !motorState?.is_enabled"
-          @click="sendCommand"
-        >
-          ▶ SEND
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -267,174 +216,109 @@ const setPresetVelocity = (preset: number) => {
 }
 
 .current-state {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 15px;
+  padding: 20px;
   background: #f8f9fa;
   border-radius: 6px;
-}
-
-.state-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.state-item label {
-  font-size: 12px;
-  color: #6c757d;
-  font-weight: 500;
-}
-
-.rpm-value {
-  font-size: 18px;
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-.direction-value {
-  font-size: 16px;
-  font-weight: 500;
-  color: #495057;
-}
-
-.velocity-control label,
-.direction-control label,
-.preset-controls label {
-  font-weight: 500;
-  color: #495057;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.velocity-input-group {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.velocity-slider {
-  flex: 1;
-  height: 6px;
-  background: #ddd;
-  border-radius: 3px;
-  outline: none;
-  cursor: pointer;
-}
-
-.velocity-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  background: #3498db;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.velocity-input {
-  width: 80px;
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
   text-align: center;
+  margin-bottom: 15px;
 }
 
-.velocity-range {
+.state-value {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #6c757d;
-  margin-top: 5px;
-}
-
-.direction-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.direction-buttons button {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.direction-buttons button:hover:not(:disabled) {
-  background: #f8f9fa;
-}
-
-.direction-buttons button.active {
-  background: #3498db;
-  color: white;
-  border-color: #3498db;
-}
-
-.preset-buttons {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  align-items: baseline;
+  justify-content: center;
   gap: 8px;
 }
 
+.rpm-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #2c3e50;
+  font-family: 'Courier New', monospace;
+}
+
+.rpm-unit {
+  font-size: 14px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.preset-controls {
+  margin-top: 10px;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+  gap: 6px;
+}
+
 .preset-btn {
-  padding: 8px 12px;
+  padding: 10px 6px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background: white;
   cursor: pointer;
   transition: all 0.3s;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
 }
 
 .preset-btn:hover:not(:disabled) {
   background: #f8f9fa;
+  transform: translateY(-1px);
+}
+
+.preset-btn.negative {
+  color: #e74c3c;
+  border-color: #ffcccc;
+}
+
+.preset-btn.negative:hover:not(:disabled) {
+  background: #fff5f5;
+}
+
+.preset-btn.positive {
+  color: #27ae60;
+  border-color: #ccffcc;
+}
+
+.preset-btn.positive:hover:not(:disabled) {
+  background: #f5fff5;
+}
+
+.preset-btn.stop {
+  color: #6c757d;
+  font-weight: bold;
+  border-color: #adb5bd;
+}
+
+.preset-btn.stop:hover:not(:disabled) {
+  background: #f8f9fa;
 }
 
 .preset-btn.active {
+  font-weight: bold;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+}
+
+.preset-btn.negative.active {
+  background: #e74c3c;
+  color: white;
+  border-color: #e74c3c;
+}
+
+.preset-btn.positive.active {
   background: #27ae60;
   color: white;
   border-color: #27ae60;
 }
 
-.preset-btn.negative {
-  color: #e74c3c;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.stop-btn,
-.send-btn {
-  flex: 1;
-  padding: 12px;
-  border: none;
-  border-radius: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.stop-btn {
-  background: #e74c3c;
+.preset-btn.stop.active {
+  background: #6c757d;
   color: white;
-}
-
-.stop-btn:hover:not(:disabled) {
-  background: #c0392b;
-}
-
-.send-btn {
-  background: #27ae60;
-  color: white;
-}
-
-.send-btn:hover:not(:disabled) {
-  background: #229954;
+  border-color: #6c757d;
 }
 
 button:disabled {

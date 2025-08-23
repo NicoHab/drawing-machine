@@ -60,19 +60,19 @@ class MotorVisualization:
             text=name, font=("Arial", 10, "bold")
         )
         
-        # RPM label
-        self.rpm_label = canvas.create_text(
+        # Motor data label (shows blockchain data driving this motor)
+        self.data_label = canvas.create_text(
             x, y + radius + 30,
-            text="0.0 RPM", font=("Arial", 8)
+            text="No data", font=("Arial", 7), width=120
         )
         
-        # Direction label
-        self.direction_label = canvas.create_text(
+        # RPM label
+        self.rpm_label = canvas.create_text(
             x, y + radius + 45,
-            text="CW", font=("Arial", 8)
+            text="0.0 RPM CW", font=("Arial", 9, "bold")
         )
     
-    def update(self, velocity_rpm, direction):
+    def update(self, velocity_rpm, direction, blockchain_data=None):
         """Update motor visualization."""
         self.velocity = velocity_rpm
         self.direction = direction
@@ -109,9 +109,30 @@ class MotorVisualization:
         
         self.canvas.itemconfig(self.pointer, fill=activity_color)
         
-        # Update labels
-        self.canvas.itemconfig(self.rpm_label, text=f"{velocity_rpm:.1f} RPM")
-        self.canvas.itemconfig(self.direction_label, text=direction)
+        # Update labels with signed RPM (negative for CCW)
+        rpm_display = f"{'-' if direction == 'CCW' else ''}{velocity_rpm:.1f} RPM"
+        self.canvas.itemconfig(self.rpm_label, text=rpm_display)
+        
+        # Update blockchain data label if available
+        if blockchain_data:
+            data_text = self.get_motor_data_text(blockchain_data)
+            self.canvas.itemconfig(self.data_label, text=data_text)
+    
+    def get_motor_data_text(self, blockchain_data):
+        """Get blockchain data text for this specific motor."""
+        if self.name == "Canvas":
+            eth_price = blockchain_data.get("eth_price_usd", 0)
+            return f"ETH: ${eth_price:.2f}"
+        elif self.name == "PB":
+            gas_price = blockchain_data.get("gas_price_gwei", 0)
+            return f"Gas: {gas_price:.3f} gwei"
+        elif self.name == "PCD":
+            blob_util = blockchain_data.get("blob_space_utilization_percent", 0)
+            return f"Blob: {blob_util:.1f}%"
+        elif self.name == "PE":
+            block_full = blockchain_data.get("block_fullness_percent", 0)
+            return f"Block: {block_full:.1f}%"
+        return "No data"
 
 
 class MockMotorTCPServerGUI:
@@ -133,8 +154,19 @@ class MockMotorTCPServerGUI:
         # Server stats
         self.server_start_time = time.time()
         self.total_connections = 0
-        self.total_commands = 0
+        self.processed_blocks = 0
+        self.manual_commands = 0
         self.active_connections = 0
+        
+        # Current blockchain data for display
+        self.last_blockchain_data = None
+        self.current_epoch = None
+        self.current_block = None
+        self.current_eth_price = None
+        
+        # Drawing mode tracking
+        self.current_drawing_mode = "UNKNOWN"
+        self.data_source = "Unknown"
         
         # GUI components
         self.root = None
@@ -161,6 +193,11 @@ class MockMotorTCPServerGUI:
         ttk.Label(header_frame, text=f"Listening on {self.host}:{self.port}", 
                  font=("Arial", 10)).pack()
         
+        # Drawing mode indicator
+        self.mode_label = ttk.Label(header_frame, text="🎨 DRAWING MODE: UNKNOWN", 
+                                   font=("Arial", 12, "bold"))
+        self.mode_label.pack(pady=5)
+        
         # Server stats frame
         stats_frame = ttk.LabelFrame(self.root, text="Server Statistics", padding=5)
         stats_frame.pack(fill="x", padx=10, pady=5)
@@ -168,21 +205,30 @@ class MockMotorTCPServerGUI:
         stats_grid = ttk.Frame(stats_frame)
         stats_grid.pack(fill="x")
         
-        # Stats labels
+        # Stats labels - updated to show mode-aware format
         self.info_labels = {
+            "current_epoch": ttk.Label(stats_grid, text="Current Epoch: N/A", font=("Arial", 10, "bold")),
+            "current_block": ttk.Label(stats_grid, text="Current Block: N/A", font=("Arial", 10, "bold")),
+            "current_eth": ttk.Label(stats_grid, text="Current ETH Price: $0.00", font=("Arial", 10, "bold")),
+            "data_source_session": ttk.Label(stats_grid, text="Data Source: Unknown  Session: N/A"),
             "uptime": ttk.Label(stats_grid, text="Uptime: 0s"),
-            "connections": ttk.Label(stats_grid, text="Total Connections: 0"),
-            "active": ttk.Label(stats_grid, text="Active Connections: 0"),
-            "commands": ttk.Label(stats_grid, text="Total Commands: 0"),
-            "last_command": ttk.Label(stats_grid, text="Last Command: None")
+            "total_commands": ttk.Label(stats_grid, text="Total: 0 (0 blocks, 0 manual)")
         }
         
-        # Arrange stats in grid
-        row = 0
-        for i, (key, label) in enumerate(self.info_labels.items()):
-            label.grid(row=row, column=i % 3, sticky="w", padx=10, pady=2)
-            if (i + 1) % 3 == 0:
-                row += 1
+        # Arrange stats in grid with mode-aware layout
+        # Row 0: Epoch and Block
+        self.info_labels["current_epoch"].grid(row=0, column=0, sticky="w", padx=10, pady=2)
+        self.info_labels["current_block"].grid(row=0, column=1, sticky="w", padx=10, pady=2)
+        
+        # Row 1: ETH Price (spans across)
+        self.info_labels["current_eth"].grid(row=1, column=0, columnspan=2, sticky="w", padx=10, pady=2)
+        
+        # Row 2: Data Source and Session (spans across)
+        self.info_labels["data_source_session"].grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=2)
+        
+        # Row 3: Uptime and Total Commands
+        self.info_labels["uptime"].grid(row=3, column=0, sticky="w", padx=10, pady=2)
+        self.info_labels["total_commands"].grid(row=3, column=1, sticky="w", padx=10, pady=2)
         
         # Motor visualization canvas
         canvas_frame = ttk.LabelFrame(self.root, text="Motor Visualizations", padding=10)
@@ -193,10 +239,10 @@ class MockMotorTCPServerGUI:
         
         # Create motor visualizations
         motor_configs = [
-            ("motor_canvas", "Canvas Motor", "blue", 150, 150),
-            ("motor_pb", "Pen Brush", "green", 450, 150),
-            ("motor_pcd", "Color Depth", "purple", 150, 300),
-            ("motor_pe", "Pen Elevation", "orange", 450, 300),
+            ("motor_canvas", "Canvas", "blue", 150, 150),
+            ("motor_pb", "PB", "green", 450, 150),
+            ("motor_pcd", "PCD", "purple", 150, 300),
+            ("motor_pe", "PE", "orange", 450, 300),
         ]
         
         for motor_key, name, color, x, y in motor_configs:
@@ -235,10 +281,15 @@ class MockMotorTCPServerGUI:
         if not self.animation_running:
             return
         
-        # Update each motor visualization
+        # Update each motor visualization with current blockchain data
+        current_blockchain_data = getattr(self, 'last_blockchain_data', None)
         for motor_key, visualization in self.motor_visualizations.items():
             motor_state = self.motors[motor_key]
-            visualization.update(motor_state.velocity_rpm, motor_state.direction)
+            visualization.update(motor_state.velocity_rpm, motor_state.direction, current_blockchain_data)
+        
+        # Update mode display if it exists
+        if hasattr(self, 'mode_label'):
+            self.mode_label.config(text=f"🎨 DRAWING MODE: {self.current_drawing_mode}")
         
         # Update server statistics
         self.update_stats()
@@ -255,9 +306,33 @@ class MockMotorTCPServerGUI:
         uptime_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
         
         self.info_labels["uptime"].config(text=f"Uptime: {uptime_str}")
-        self.info_labels["connections"].config(text=f"Total Connections: {self.total_connections}")
-        self.info_labels["active"].config(text=f"Active Connections: {self.active_connections}")
-        self.info_labels["commands"].config(text=f"Total Commands: {self.total_commands}")
+        
+        # Update total commands (blocks + manual)
+        total_commands = self.processed_blocks + self.manual_commands
+        self.info_labels["total_commands"].config(
+            text=f"Total: {total_commands} ({self.processed_blocks} blocks, {self.manual_commands} manual)"
+        )
+        
+        # Update data source and session info
+        self.info_labels["data_source_session"].config(
+            text=f"Data Source: {self.data_source}  Session: {self.current_drawing_mode}"
+        )
+        
+        # Update blockchain-specific stats (always show current data)
+        if self.current_epoch is not None:
+            self.info_labels["current_epoch"].config(text=f"Current Epoch: {self.current_epoch}")
+        else:
+            self.info_labels["current_epoch"].config(text="Current Epoch: N/A")
+            
+        if self.current_block is not None:
+            self.info_labels["current_block"].config(text=f"Current Block: {self.current_block}")
+        else:
+            self.info_labels["current_block"].config(text="Current Block: N/A")
+            
+        if self.current_eth_price is not None:
+            self.info_labels["current_eth"].config(text=f"Current ETH Price: ${self.current_eth_price:.2f}")
+        else:
+            self.info_labels["current_eth"].config(text="Current ETH Price: N/A")
     
     def log_message(self, message):
         """Add message to command log."""
@@ -279,7 +354,13 @@ class MockMotorTCPServerGUI:
         """Reset server statistics."""
         self.server_start_time = time.time()
         self.total_connections = 0
-        self.total_commands = 0
+        self.processed_blocks = 0
+        self.manual_commands = 0
+        self.current_epoch = None
+        self.current_block = None
+        self.current_eth_price = None
+        self.current_drawing_mode = "UNKNOWN"
+        self.data_source = "Unknown"
         self.log_message("Statistics reset")
     
     async def handle_client(self, reader, writer):
@@ -304,7 +385,7 @@ class MockMotorTCPServerGUI:
                     response = {
                         "status": "ACK",
                         "timestamp": time.time(),
-                        "command_id": self.total_commands
+                        "command_id": self.processed_blocks if "blockchain_data" in command else self.total_connections
                     }
                     
                     response_data = json.dumps(response) + "\n"
@@ -324,9 +405,45 @@ class MockMotorTCPServerGUI:
             writer.close()
             await writer.wait_closed()
     
+    def get_motor_display_name(self, motor_name):
+        """Get display name for motor."""
+        name_map = {
+            'motor_canvas': 'Canvas',
+            'motor_pb': 'PB',
+            'motor_pcd': 'PCD',
+            'motor_pe': 'PE'
+        }
+        return name_map.get(motor_name, motor_name)
+    
+    def detect_drawing_mode(self, command):
+        """Detect drawing mode from command structure."""
+        if "blockchain_data" in command:
+            if "manual_override" in command:
+                return "HYBRID"
+            else:
+                return "AUTO-BLOCKCHAIN"
+        elif "motor_name" in command:
+            return "MANUAL"
+        elif "session_replay" in command:
+            return "OFFLINE-REPLAY"
+        else:
+            return "UNKNOWN"
+    
     async def process_command(self, command, client_addr):
         """Process incoming motor command."""
-        self.total_commands += 1
+        # Detect and update drawing mode
+        self.current_drawing_mode = self.detect_drawing_mode(command)
+        
+        # Track command types separately
+        if "blockchain_data" in command:
+            self.processed_blocks += 1
+            self.data_source = "Live Blockchain"
+        elif "motor_name" in command:
+            self.manual_commands += 1
+            self.data_source = "Manual Control"
+        else:
+            # Unknown command type
+            self.data_source = "Unknown"
         
         # Handle different command formats
         if "motor_name" in command:
@@ -341,13 +458,15 @@ class MockMotorTCPServerGUI:
                 self.motors[motor_name].last_update = time.time()
                 self.motors[motor_name].total_commands += 1
                 
-                self.log_message(f"Motor {motor_name}: {velocity_rpm:.1f} RPM {direction}")
+                motor_display = self.get_motor_display_name(motor_name)
+                rpm_display = f"{'-' if direction == 'CCW' else ''}{velocity_rpm:.1f}"
+                self.log_message(f"{motor_display}: {rpm_display} RPM")
                 self.info_labels["last_command"].config(
                     text=f"Last: {motor_name} -> {velocity_rpm:.1f} RPM {direction}"
                 )
         
         elif "motors" in command:
-            # Multiple motor command
+            # Multiple motor command with optional blockchain data
             for motor_name, motor_cmd in command["motors"].items():
                 if motor_name in self.motors:
                     rpm = motor_cmd.get("rpm", 0)
@@ -358,13 +477,74 @@ class MockMotorTCPServerGUI:
                     self.motors[motor_name].last_update = time.time()
                     self.motors[motor_name].total_commands += 1
             
+            # Create motor summary
             motor_summary = ", ".join([
                 f"{name}: {self.motors[name].velocity_rpm:.1f}"
                 for name in command["motors"].keys()
                 if name in self.motors
             ])
-            self.log_message(f"Multi-motor: {motor_summary}")
-            self.info_labels["last_command"].config(text=f"Last: Multi-motor update")
+            
+            # Include blockchain data if available
+            if "blockchain_data" in command:
+                blockchain_data = command["blockchain_data"]
+                self.last_blockchain_data = blockchain_data  # Store for motor visualizations
+                
+                eth_price = blockchain_data.get("eth_price_usd", 0)
+                gas_price = blockchain_data.get("gas_price_gwei", 0)
+                blob_util = blockchain_data.get("blob_space_utilization_percent", 0)
+                block_full = blockchain_data.get("block_fullness_percent", 0)
+                epoch = blockchain_data.get("epoch", "N/A")
+                block_number = blockchain_data.get("block_number", "N/A")
+                
+                # Get data sources for enhanced logging
+                data_sources = blockchain_data.get("data_sources", {})
+                eth_source = data_sources.get("eth_price_source", "unknown")
+                gas_source = data_sources.get("gas_price_source", "unknown")
+                epoch_source = data_sources.get("epoch_source", "unknown")
+                block_source = data_sources.get("block_number_source", "unknown")
+                
+                # Update current blockchain data for server statistics
+                self.current_epoch = epoch
+                self.current_block = block_number if block_number != "N/A" else None
+                self.current_eth_price = eth_price
+                
+                # Update drawing mode display
+                if hasattr(self, 'mode_label'):
+                    self.mode_label.config(text=f"🎨 DRAWING MODE: {self.current_drawing_mode}")
+                
+                # Enhanced logging format with data sources and block number
+                block_display = block_number if block_number != "N/A" else "N/A"
+                self.log_message(f"═══ EPOCH {epoch} - BLOCK {block_display} ═══")
+                
+                # Canvas motor
+                canvas_rpm = self.motors.get('motor_canvas', MotorState()).velocity_rpm
+                canvas_dir = self.motors.get('motor_canvas', MotorState()).direction
+                canvas_display = f"{'-' if canvas_dir == 'CCW' else ''}{canvas_rpm:.1f}"
+                self.log_message(f"Canvas - ETH Price: ${eth_price:.2f} ({eth_source}) → {canvas_display} RPM")
+                
+                # PB motor
+                pb_rpm = self.motors.get('motor_pb', MotorState()).velocity_rpm
+                pb_dir = self.motors.get('motor_pb', MotorState()).direction
+                pb_display = f"{'-' if pb_dir == 'CCW' else ''}{pb_rpm:.1f}"
+                self.log_message(f"PB - Gas: {gas_price:.3f} gwei ({gas_source}) → {pb_display} RPM")
+                
+                # PCD motor
+                pcd_rpm = self.motors.get('motor_pcd', MotorState()).velocity_rpm
+                pcd_dir = self.motors.get('motor_pcd', MotorState()).direction
+                pcd_display = f"{'-' if pcd_dir == 'CCW' else ''}{pcd_rpm:.1f}"
+                blob_source = data_sources.get("blob_util_source", "estimated")
+                self.log_message(f"PCD - Blob Utilization: {blob_util:.1f}% ({blob_source}) → {pcd_display} RPM")
+                
+                # PE motor
+                pe_rpm = self.motors.get('motor_pe', MotorState()).velocity_rpm
+                pe_dir = self.motors.get('motor_pe', MotorState()).direction
+                pe_display = f"{'-' if pe_dir == 'CCW' else ''}{pe_rpm:.1f}"
+                fullness_source = data_sources.get("block_fullness_source", "fallback")
+                self.log_message(f"PE - Block Fullness: {block_full:.1f}% ({fullness_source}) → {pe_display} RPM")
+            else:
+                # Regular multi-motor command without blockchain data
+                self.log_message(f"Multi-motor: {motor_summary}")
+                # Don't reset blockchain stats for non-blockchain commands
         
         else:
             self.log_message(f"Unknown command format: {command}")

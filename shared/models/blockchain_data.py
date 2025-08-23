@@ -196,8 +196,8 @@ class EthereumDataSnapshot(BaseModel):
     epoch: int = Field(
         ...,
         ge=0,
-        le=1574,
-        description="Drawing epoch number (0-1574), determines drawing session phase",
+        le=500000,  # Allow realistic Ethereum epoch numbers (current ~388K)
+        description="Ethereum beacon chain epoch number, determines drawing session phase",
     )
 
     eth_price_usd: float = Field(
@@ -234,6 +234,17 @@ class EthereumDataSnapshot(BaseModel):
 
     api_response_times: ApiResponseTimes = Field(
         ..., description="API response time measurements"
+    )
+    
+    data_sources: dict = Field(
+        default_factory=dict,
+        description="Data source tracking for each blockchain metric"
+    )
+    
+    block_number: int | None = Field(
+        default=None,
+        ge=0,
+        description="Ethereum block number for data provenance (live/historical)"
     )
 
     @field_validator("timestamp")

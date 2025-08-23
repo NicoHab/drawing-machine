@@ -46,11 +46,45 @@ const currentModeInfo = computed(() => {
   return modes.find(mode => mode.value === props.currentMode) || modes[0]
 })
 
-// Methods
-const selectMode = (modeValue: string) => {
-  if (modeValue !== props.currentMode) {
-    emit('modeChange', modeValue)
+// Track if we're currently processing a mode change
+let isChangingMode = false
+
+// Methods  
+const selectMode = (modeValue: string, event?: MouseEvent) => {
+  // Prevent any action if we're already changing mode
+  if (isChangingMode) {
+    console.log(`ModeSelector: BLOCKED - already changing mode`)
+    return
   }
+  
+  // Prevent double-clicks and rapid clicks
+  if (event) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    if (!event.isTrusted) {
+      console.log(`ModeSelector: BLOCKED non-trusted event`)
+      return
+    }
+  }
+  
+  // Only proceed if actually changing to a different mode
+  if (modeValue === props.currentMode) {
+    console.log(`ModeSelector: Already in ${modeValue} mode`)
+    return
+  }
+  
+  // Set flag to prevent concurrent changes
+  isChangingMode = true
+  console.log(`ModeSelector: Changing from ${props.currentMode} to ${modeValue}`)
+  
+  // Emit the change
+  emit('modeChange', modeValue)
+  
+  // Clear flag after a delay to prevent rapid changes
+  setTimeout(() => {
+    isChangingMode = false
+  }, 1000)
 }
 </script>
 
@@ -74,7 +108,7 @@ const selectMode = (modeValue: string) => {
         :key="mode.value"
         class="mode-option"
         :class="{ active: mode.value === currentMode }"
-        @click="selectMode(mode.value)"
+        @click="selectMode(mode.value, $event)"
       >
         <span class="mode-icon">{{ mode.icon }}</span>
         <div class="mode-details">

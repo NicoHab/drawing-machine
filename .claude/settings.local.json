@@ -5,7 +5,13 @@
       "Bash(del test_recursion_fix.py)",
       "Bash(grep:*)",
       "Bash(poetry run pytest:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(npm install)",
+      "Bash(poetry add:*)",
+      "Bash(poetry run:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

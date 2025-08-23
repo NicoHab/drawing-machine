@@ -1,0 +1,18 @@
+{
+  "motor_canvas": {
+    "rpm": 37.59295,
+    "dir": "CW"
+  },
+  "motor_pb": {
+    "rpm": 5.0956635575,
+    "dir": "CCW"
+  },
+  "motor_pcd": {
+    "rpm": 0.588947556118977,
+    "dir": "CW"
+  },
+  "motor_pe": {
+    "rpm": 1.405374423710579,
+    "dir": "CW"
+  }
+}

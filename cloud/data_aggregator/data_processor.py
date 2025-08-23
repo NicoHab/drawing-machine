@@ -39,10 +39,10 @@ class DataProcessor:
         self.generator = MotorCommandGenerator(safety_limits)
         self.logger = logging.getLogger(__name__)
         
-        # Caching and state
+        # Caching and state - Reduced cache duration for live data
         self._data_cache: Dict[str, EthereumDataSnapshot] = {}
         self._command_cache: Dict[str, MotorVelocityCommands] = {}
-        self._cache_duration = timedelta(minutes=5)  # Cache for 5 minutes
+        self._cache_duration = timedelta(seconds=30)  # Cache for 30 seconds only for live updates
         
         # Processing statistics
         self.stats = {
@@ -91,8 +91,11 @@ class DataProcessor:
             # Fetch fresh blockchain data
             blockchain_data = await self._fetch_with_retry()
             
+            # Use real blockchain epoch if available, otherwise fall back to parameter
+            real_epoch = getattr(blockchain_data, 'epoch', epoch)
+            
             # Generate motor commands
-            commands = await self._generate_with_validation(blockchain_data, epoch)
+            commands = await self._generate_with_validation(blockchain_data, real_epoch)
             
             # Cache the results
             self._cache_data(blockchain_data)
@@ -210,6 +213,18 @@ class DataProcessor:
         self.generator.update_config(config)
         self.logger.info(f"Updated generator configuration: {config}")
     
+    def get_commands_by_block_range(self, start_block: int, end_block: int) -> Dict[int, MotorVelocityCommands]:
+        """Get cached motor commands for a range of blocks (for historical replay)."""
+        commands_by_block = {}
+        
+        for block_num in range(start_block, end_block + 1):
+            block_key = f"block_{block_num}"
+            if block_key in self._command_cache:
+                commands_by_block[block_num] = self._command_cache[block_key]
+        
+        self.logger.info(f"Retrieved commands for {len(commands_by_block)}/{end_block - start_block + 1} blocks in range {start_block}-{end_block}")
+        return commands_by_block
+    
     async def _fetch_with_retry(self, max_retries: int = 3) -> EthereumDataSnapshot:
         """Fetch blockchain data with retry logic."""
         for attempt in range(max_retries):
@@ -274,12 +289,18 @@ class DataProcessor:
             return False
     
     def _get_cached_commands(self, epoch: int) -> Optional[MotorVelocityCommands]:
-        """Get cached commands if still valid."""
-        cache_key = f"epoch_{epoch}"
+        """Get cached commands if still valid (now using block numbers)."""
+        # Try both epoch and block-based cache keys for backward compatibility
+        epoch_key = f"epoch_{epoch}"
+        block_key = f"block_{epoch}"  # When epoch is actually a block number
         
-        if cache_key in self._command_cache:
-            # Check if cache is still valid (simplified - would check timestamp)
-            return self._command_cache[cache_key]
+        # Check block-based cache first (preferred)
+        if block_key in self._command_cache:
+            return self._command_cache[block_key]
+            
+        # Fallback to epoch-based cache
+        if epoch_key in self._command_cache:
+            return self._command_cache[epoch_key]
         
         return None
     
@@ -292,9 +313,14 @@ class DataProcessor:
         self._cleanup_cache()
     
     def _cache_commands(self, commands: MotorVelocityCommands, epoch: int) -> None:
-        """Cache generated commands."""
-        cache_key = f"epoch_{epoch}"
-        self._command_cache[cache_key] = commands
+        """Cache generated commands using block-based indexing."""
+        # Use block-based cache key for new system
+        block_key = f"block_{epoch}"
+        self._command_cache[block_key] = commands
+        
+        # Also cache with epoch key for backward compatibility
+        epoch_key = f"epoch_{epoch}"
+        self._command_cache[epoch_key] = commands
         
         # Clean old cache entries
         self._cleanup_cache()

@@ -433,7 +433,9 @@ def main():
     print("3. Then run this demo")
     print()
     
-    input("Press Enter when ready to start the live demo...")
+    print("Auto-starting demo in 3 seconds...")
+    import time
+    time.sleep(3)
     
     demo = LiveEthereumMotorDemo()
     demo.run_demo()

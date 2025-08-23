@@ -16,6 +16,14 @@ from pydantic import BaseModel, Field, computed_field, field_validator, model_va
 from .blockchain_data import EthereumDataSnapshot
 
 
+class ControlMode(str, Enum):
+    """Control mode enumeration for compatibility."""
+    MANUAL = "manual"
+    AUTO = "auto"
+    HYBRID = "hybrid"
+    OFFLINE = "offline"
+
+
 class MotorDirection(str, Enum):
     """Motor rotation direction enumeration."""
 
@@ -448,7 +456,7 @@ class MotorVelocityCommands(BaseModel):
         description="Unix timestamp when commands were generated",
     )
 
-    epoch: int = Field(..., ge=0, le=1574, description="Drawing epoch number (0-1574)")
+    epoch: int = Field(..., ge=0, le=500000, description="Ethereum beacon chain epoch number")
 
     command_duration_seconds: float = Field(
         default=3.4,

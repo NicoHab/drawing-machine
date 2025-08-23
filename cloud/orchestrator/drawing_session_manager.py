@@ -12,15 +12,10 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+from dataclasses import dataclass
 
 from .pipeline_orchestrator import PipelineOrchestrator, OrchestrationError
-from shared.models.drawing_session import (
-    DrawingSession,
-    DrawingSessionConfig,
-    DrawingMode,
-    SessionStatus,
-    PlaybackSpeed,
-)
+from shared.models.drawing_session import DrawingMode, SessionStatus, PlaybackSpeed
 from shared.models.motor_commands import MotorSafetyLimits
 
 
@@ -30,6 +25,55 @@ class SessionError(Exception):
     def __init__(self, message: str, session_id: Optional[str] = None):
         self.session_id = session_id
         super().__init__(message)
+
+
+@dataclass
+class SessionMetrics:
+    """Session performance metrics."""
+    planned_duration_minutes: float = 0.0
+    actual_duration_minutes: float = 0.0
+    epochs_completed: int = 0
+    commands_executed: int = 0
+    errors_encountered: int = 0
+
+
+class SimpleDrawingSession:
+    """Simplified drawing session for the orchestrator."""
+    
+    def __init__(self, session_id: str, mode: DrawingMode, name: str, 
+                 description: str, config: dict, safety_limits: MotorSafetyLimits):
+        self.session_id = session_id
+        self.mode = mode
+        self.name = name
+        self.description = description
+        self.status = SessionStatus.CREATED
+        self.config = config
+        self.safety_limits = safety_limits
+        self.created_time = datetime.now()
+        self.actual_start_time: Optional[datetime] = None
+        self.actual_end_time: Optional[datetime] = None
+        self.metrics = SessionMetrics()
+        self.clients = {}
+    
+    def to_dict(self) -> dict:
+        """Convert session to dictionary."""
+        return {
+            "session_id": self.session_id,
+            "mode": self.mode.value,
+            "name": self.name,
+            "description": self.description,
+            "status": self.status.value,
+            "created_time": self.created_time.isoformat(),
+            "actual_start_time": self.actual_start_time.isoformat() if self.actual_start_time else None,
+            "actual_end_time": self.actual_end_time.isoformat() if self.actual_end_time else None,
+            "metrics": {
+                "planned_duration_minutes": self.metrics.planned_duration_minutes,
+                "actual_duration_minutes": self.metrics.actual_duration_minutes,
+                "epochs_completed": self.metrics.epochs_completed,
+                "commands_executed": self.metrics.commands_executed,
+                "errors_encountered": self.metrics.errors_encountered,
+            }
+        }
 
 
 class DrawingSessionManager:
@@ -49,7 +93,7 @@ class DrawingSessionManager:
         self.storage_path.mkdir(exist_ok=True)
         
         # Active sessions
-        self.active_sessions: Dict[str, DrawingSession] = {}
+        self.active_sessions: Dict[str, SimpleDrawingSession] = {}
         self.session_orchestrators: Dict[str, PipelineOrchestrator] = {}
         
         # Configuration
@@ -73,6 +117,9 @@ class DrawingSessionManager:
         self._cleanup_task: Optional[asyncio.Task] = None
         self._auto_save_task: Optional[asyncio.Task] = None
         
+        # Event callbacks
+        self.event_callbacks: Dict[str, List] = {}
+        
         self.logger = logging.getLogger(__name__)
         
         # Start background tasks
@@ -84,7 +131,7 @@ class DrawingSessionManager:
         name: Optional[str] = None,
         description: Optional[str] = None,
         config: Optional[Dict] = None,
-    ) -> DrawingSession:
+    ) -> SimpleDrawingSession:
         """
         Create a new drawing session.
         
@@ -107,12 +154,11 @@ class DrawingSessionManager:
             
             # Create session
             session_id = str(uuid.uuid4())
-            session = DrawingSession(
+            session = SimpleDrawingSession(
                 session_id=session_id,
                 mode=mode,
                 name=name or f"{mode.value}_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
                 description=description or f"Drawing session in {mode.value} mode",
-                status=SessionStatus.CREATED,
                 config=config or {},
                 safety_limits=self.safety_limits,
             )
@@ -131,7 +177,7 @@ class DrawingSessionManager:
             self.logger.error(f"Failed to create session: {e}")
             raise SessionError(f"Session creation failed: {e}")
     
-    async def start_session(self, session_id: str) -> bool:
+    async def start_session(self, session_id: str, client_id: str = None) -> bool:
         """
         Start a drawing session.
         
@@ -331,7 +377,7 @@ class DrawingSessionManager:
             "storage_path": str(self.storage_path),
         }
     
-    async def _start_mode_orchestration(self, session: DrawingSession) -> bool:
+    async def _start_mode_orchestration(self, session: SimpleDrawingSession) -> bool:
         """Start mode-specific orchestration."""
         try:
             if session.mode == DrawingMode.BLOCKCHAIN:
@@ -349,7 +395,7 @@ class DrawingSessionManager:
             self.logger.error(f"Failed to start {session.mode.value} orchestration: {e}")
             return False
     
-    async def _start_blockchain_mode(self, session: DrawingSession) -> bool:
+    async def _start_blockchain_mode(self, session: SimpleDrawingSession) -> bool:
         """Start blockchain mode orchestration."""
         try:
             orchestrator = PipelineOrchestrator(self.safety_limits)
@@ -361,19 +407,19 @@ class DrawingSessionManager:
             self.logger.error(f"Blockchain orchestration failed: {e}")
             return False
     
-    async def _start_manual_mode(self, session: DrawingSession) -> bool:
+    async def _start_manual_mode(self, session: SimpleDrawingSession) -> bool:
         """Start manual mode (user-controlled)."""
         # Manual mode doesn't need orchestration - user controls directly
         self.logger.info(f"Manual mode session {session.session_id} ready for user control")
         return True
     
-    async def _start_offline_mode(self, session: DrawingSession) -> bool:
+    async def _start_offline_mode(self, session: SimpleDrawingSession) -> bool:
         """Start offline mode (pre-recorded sequence playback)."""
         # Would load and play pre-recorded sequences
         self.logger.info(f"Offline mode not fully implemented for session {session.session_id}")
         return True
     
-    async def _start_hybrid_mode(self, session: DrawingSession) -> bool:
+    async def _start_hybrid_mode(self, session: SimpleDrawingSession) -> bool:
         """Start hybrid mode (combination of blockchain and manual)."""
         # Would combine blockchain automation with manual overrides
         self.logger.info(f"Hybrid mode not fully implemented for session {session.session_id}")
@@ -394,30 +440,11 @@ class DrawingSessionManager:
             self.logger.error(f"Failed to stop orchestration for session {session_id}: {e}")
             return False
     
-    async def _save_session(self, session: DrawingSession) -> None:
+    async def _save_session(self, session: SimpleDrawingSession) -> None:
         """Save session to persistent storage."""
         try:
             session_file = self.storage_path / f"{session.session_id}.json"
-            
-            # Convert session to JSON-serializable format
-            session_data = {
-                "session_id": session.session_id,
-                "name": session.name,
-                "description": session.description,
-                "mode": session.mode.value,
-                "status": session.status.value,
-                "created_time": session.created_time.isoformat(),
-                "actual_start_time": session.actual_start_time.isoformat() if session.actual_start_time else None,
-                "actual_end_time": session.actual_end_time.isoformat() if session.actual_end_time else None,
-                "config": session.config,
-                "metrics": {
-                    "planned_duration_minutes": session.metrics.planned_duration_minutes,
-                    "actual_duration_minutes": session.metrics.actual_duration_minutes,
-                    "epochs_completed": session.metrics.epochs_completed,
-                    "commands_executed": session.metrics.commands_executed,
-                    "errors_encountered": session.metrics.errors_encountered,
-                }
-            }
+            session_data = session.to_dict()
             
             with open(session_file, 'w') as f:
                 json.dump(session_data, f, indent=2)
@@ -472,3 +499,77 @@ class DrawingSessionManager:
         for session_id in sessions_to_remove:
             del self.active_sessions[session_id]
             self.logger.info(f"Cleaned up old session {session_id}")
+    
+    def register_event_callback(self, event_name: str, callback):
+        """Register event callback."""
+        if event_name not in self.event_callbacks:
+            self.event_callbacks[event_name] = []
+        self.event_callbacks[event_name].append(callback)
+    
+    async def _emit_event(self, event_name: str, data):
+        """Emit event to registered callbacks."""
+        if event_name in self.event_callbacks:
+            for callback in self.event_callbacks[event_name]:
+                try:
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(data)
+                    else:
+                        callback(data)
+                except Exception as e:
+                    self.logger.error(f"Event callback error for {event_name}: {e}")
+    
+    def get_active_sessions(self):
+        """Get list of active sessions."""
+        return [session for session in self.active_sessions.values() 
+                if session.status not in [SessionStatus.COMPLETED, SessionStatus.FAILED]]
+    
+    def get_system_status(self):
+        """Get system status."""
+        return {
+            "active_sessions": len(self.active_sessions),
+            "stats": self.stats.copy(),
+            "config": self.config.copy()
+        }
+    
+    async def join_session(self, session_id: str, client_id: str, client_info: dict) -> bool:
+        """Join a client to a session."""
+        try:
+            session = self.active_sessions.get(session_id)
+            if not session:
+                return False
+            
+            # Add client info to session (simplified)
+            if not hasattr(session, 'clients'):
+                session.clients = {}
+            session.clients[client_id] = client_info
+            
+            await self._emit_event("client_joined", {
+                "session": session,
+                "client_id": client_id,
+                "client_info": client_info
+            })
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to join session {session_id}: {e}")
+            return False
+    
+    async def leave_session(self, session_id: str, client_id: str) -> bool:
+        """Remove a client from a session."""
+        try:
+            session = self.active_sessions.get(session_id)
+            if not session:
+                return False
+            
+            # Remove client from session
+            if hasattr(session, 'clients') and client_id in session.clients:
+                del session.clients[client_id]
+            
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to leave session {session_id}: {e}")
+            return False
+    
+    async def complete_session(self, session_id: str, client_id: str) -> bool:
+        """Complete a session (alias for stop_session)."""
+        return await self.stop_session(session_id)
