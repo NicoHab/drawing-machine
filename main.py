@@ -127,7 +127,7 @@ async def start_blockchain_service():
                                 motor_commands[motor_name] = {
                                     "velocity_rpm": motor_cmd.velocity_rpm,
                                     "direction": motor_cmd.direction.value,
-                                    "duration_seconds": motor_cmd.duration_seconds
+                                    "duration_seconds": getattr(motor_cmd, 'duration_seconds', 3.4)
                                 }
                             
                             # Get blockchain data for display
