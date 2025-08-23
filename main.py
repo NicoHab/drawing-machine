@@ -109,7 +109,11 @@ async def start_blockchain_service():
                 
                 if result and result.motors:
                     # Get latest blockchain snapshot for display data
-                    snapshot = processor.fetcher.get_latest_cached_data()
+                    try:
+                        snapshot = await processor.fetcher.fetch_current_data()
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch display data: {e}")
+                        snapshot = None
                     
                     if snapshot:
                         block_number = getattr(snapshot, 'block_number', 'N/A')
