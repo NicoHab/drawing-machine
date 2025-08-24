@@ -21,7 +21,7 @@ const {
   updateApiKey 
 } = useWebSocket({
   url: wsUrl,
-  clientType: 'web_ui',
+  clientType: 'visitor',
   apiKey: apiKey.value,
   autoReconnect: true
 })
