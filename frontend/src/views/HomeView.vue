@@ -106,6 +106,14 @@ const handleMessage = (data: any) => {
       }
       break
       
+    case 'mode_changed':
+      console.log('Mode changed:', data)
+      if (data.new_mode) {
+        systemState.mode = data.new_mode
+        console.log('Updated system mode to:', systemState.mode)
+      }
+      break
+      
     case 'blockchain_data':
     case 'blockchain_data_update':
       console.log('Blockchain data received:', data)

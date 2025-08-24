@@ -88,9 +88,6 @@ class MotorCommandGenerator:
         max_cw_rpm = self.config["utilization_max_cw_rpm"] 
         max_ccw_rpm = self.config["utilization_max_ccw_rpm"]
         
-        # DEBUG: Log input values
-        self.logger.debug(f"Utilization calculation: input={utilization_percent}, target={target}, max_cw={max_cw_rpm}, max_ccw={max_ccw_rpm}")
-        
         # Clamp utilization to valid range
         util = max(0.0, min(100.0, utilization_percent))
         
@@ -102,7 +99,6 @@ class MotorCommandGenerator:
             else:
                 velocity_rpm = (util - target) / (100.0 - target) * max_cw_rpm
             direction = MotorDirection.CLOCKWISE
-            self.logger.debug(f"Above target: util={util}, calculated_rpm={velocity_rpm}, direction=CW")
         else:
             # Below target: max_ccw_rpm at 0%, 0 RPM at target
             # Linear interpolation: rpm = (target - util) / target * max_ccw_rpm
@@ -111,11 +107,8 @@ class MotorCommandGenerator:
             else:
                 velocity_rpm = (target - util) / target * max_ccw_rpm
             direction = MotorDirection.COUNTER_CLOCKWISE
-            self.logger.debug(f"Below target: util={util}, calculated_rpm={velocity_rpm}, direction=CCW")
         
-        final_rpm = abs(velocity_rpm)
-        self.logger.debug(f"Final result: rpm={final_rpm}, direction={direction.value}")
-        return final_rpm, direction
+        return abs(velocity_rpm), direction
     
     async def generate_commands(
         self, 
@@ -221,9 +214,7 @@ class MotorCommandGenerator:
         """Generate color depth motor command based on blob space utilization."""
         # Use utilization-based RPM calculation
         # 0% = 2 RPM CCW, 50% = 0 RPM, 100% = 10 RPM CW
-        self.logger.info(f"MOTOR_PCD: blob_util={data.blob_space_utilization_percent}")
         velocity_rpm, direction = self._calculate_utilization_based_motor(data.blob_space_utilization_percent)
-        self.logger.info(f"MOTOR_PCD: result={velocity_rpm}RPM {direction.value}")
         
         return SingleMotorCommand(
             velocity_rpm=velocity_rpm,
