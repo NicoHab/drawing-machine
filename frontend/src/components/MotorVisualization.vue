@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { MOTOR_CONFIG, ACTIVITY_THRESHOLDS } from '../config/constants'
 
 // Props
 interface Props {
@@ -63,7 +64,7 @@ const motors = ref([
   }
 ])
 
-const radius = 40
+const radius = MOTOR_CONFIG.MOTOR_RADIUS
 
 // Update motor states when props change
 watch(() => props.motorStates, (newStates) => {
@@ -91,7 +92,7 @@ const animate = () => {
   if (!ctx.value || !props.isActive) return
   
   // Clear canvas
-  ctx.value.clearRect(0, 0, 600, 400)
+  ctx.value.clearRect(0, 0, MOTOR_CONFIG.CANVAS_WIDTH, MOTOR_CONFIG.CANVAS_HEIGHT)
   
   // Update and draw each motor
   motors.value.forEach(motor => {
@@ -104,7 +105,7 @@ const animate = () => {
 
 const updateMotorRotation = (motor: any) => {
   // Update rotation based on velocity and direction
-  const rotationSpeed = Math.abs(motor.velocity) * 0.1 // Scale for visual effect
+  const rotationSpeed = Math.abs(motor.velocity) * MOTOR_CONFIG.ANIMATION_SCALE
   const direction = motor.direction === 'CCW' ? -1 : 1
   
   motor.angle += rotationSpeed * direction
@@ -133,9 +134,9 @@ const drawMotor = (motor: any) => {
   
   // Activity-based color
   let activityColor = color
-  if (Math.abs(velocity) > 15) activityColor = '#e74c3c'
-  else if (Math.abs(velocity) > 10) activityColor = '#f39c12'
-  else if (Math.abs(velocity) > 0) activityColor = '#27ae60'
+  if (Math.abs(velocity) > ACTIVITY_THRESHOLDS.HIGH_ACTIVITY_RPM) activityColor = '#e74c3c'
+  else if (Math.abs(velocity) > ACTIVITY_THRESHOLDS.MEDIUM_ACTIVITY_RPM) activityColor = '#f39c12'
+  else if (Math.abs(velocity) > ACTIVITY_THRESHOLDS.LOW_ACTIVITY_RPM) activityColor = '#27ae60'
   else activityColor = '#95a5a6'
   
   ctx.value.beginPath()
@@ -246,7 +247,7 @@ const totalCommands = computed(() => {
 })
 
 const activeMotors = computed(() => {
-  return motors.value.filter(motor => Math.abs(motor.velocity) > 0.1).length
+  return motors.value.filter(motor => Math.abs(motor.velocity) > ACTIVITY_THRESHOLDS.LOW_ACTIVITY_RPM).length
 })
 </script>
 
@@ -266,8 +267,8 @@ const activeMotors = computed(() => {
     <div class="canvas-container">
       <canvas 
         ref="canvasRef"
-        width="600" 
-        height="400"
+        :width="MOTOR_CONFIG.CANVAS_WIDTH" 
+        :height="MOTOR_CONFIG.CANVAS_HEIGHT"
         :class="{ active: isActive }"
         class="w-full h-auto max-w-full"
         style="max-width: 100%; height: auto;"

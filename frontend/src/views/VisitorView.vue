@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import MotorVisualization from '../components/MotorVisualization.vue'
 import DataDisplayPanel from '../components/DataDisplayPanel.vue'
+import { WEBSOCKET_CONFIG } from '../config/constants'
 
 // Connection settings (read-only connection)
 const wsUrl = ref(import.meta.env.VITE_BACKEND_URL || 'wss://drawing-machine-production.up.railway.app')
@@ -52,7 +53,7 @@ const connectToServer = () => {
   ws.value.onclose = () => {
     connectionStatus.value = 'disconnected'
     // Auto-reconnect for visitors
-    setTimeout(connectToServer, 5000)
+    setTimeout(connectToServer, WEBSOCKET_CONFIG.VISITOR_RECONNECT_DELAY)
   }
 
   ws.value.onerror = (error) => {

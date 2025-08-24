@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { UI_CONFIG, DEFAULT_VALUES } from '../config/constants'
 
 // Props
 interface Props {
@@ -58,14 +59,14 @@ const isManualMode = computed(() => props.systemState.mode === 'manual')
         <div class="bg-gray-900/50 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-blue-400 mb-1">Canvas - ETH Price</h3>
           <p class="text-2xl font-bold text-white">
-            ${{ systemState.blockchainData.eth_price_usd?.toFixed(4) || '0.0000' }}
+            ${{ systemState.blockchainData.eth_price_usd?.toFixed(UI_CONFIG.DECIMAL_PLACES.ETH_PRICE) || DEFAULT_VALUES.BLOCKCHAIN_FALLBACK.ETH_PRICE }}
           </p>
         </div>
         
         <div class="bg-gray-900/50 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-purple-400 mb-1">PB - Blob Utilization</h3>
           <p class="text-2xl font-bold text-white">
-            {{ systemState.blockchainData.blob_space_utilization_percent?.toFixed(2) || '0.00' }}<span class="text-sm text-gray-400">%</span>
+            {{ systemState.blockchainData.blob_space_utilization_percent?.toFixed(UI_CONFIG.DECIMAL_PLACES.PERCENTAGE) || DEFAULT_VALUES.BLOCKCHAIN_FALLBACK.PERCENTAGE }}<span class="text-sm text-gray-400">%</span>
           </p>
         </div>
         
@@ -73,10 +74,10 @@ const isManualMode = computed(() => props.systemState.mode === 'manual')
           <h3 class="text-sm font-semibold text-green-400 mb-1">PCD - Gas Target Ratio</h3>
           <p class="text-2xl font-bold text-white">
             <template v-if="systemState.blockchainData.base_fee_gwei && systemState.blockchainData.base_fee_gwei > 0">
-              {{ ((systemState.blockchainData.gas_price_gwei / systemState.blockchainData.base_fee_gwei) * 100).toFixed(1) }}<span class="text-sm text-gray-400">%</span>
+              {{ ((systemState.blockchainData.gas_price_gwei / systemState.blockchainData.base_fee_gwei) * 100).toFixed(UI_CONFIG.DECIMAL_PLACES.PERCENTAGE_PRECISE) }}<span class="text-sm text-gray-400">%</span>
             </template>
             <template v-else>
-              <span class="text-lg text-orange-400">{{ systemState.blockchainData.gas_price_gwei?.toFixed(1) || '0.0' }}</span> <span class="text-sm text-gray-400">gwei*</span>
+              <span class="text-lg text-orange-400">{{ systemState.blockchainData.gas_price_gwei?.toFixed(UI_CONFIG.DECIMAL_PLACES.GAS_PRICE) || DEFAULT_VALUES.BLOCKCHAIN_FALLBACK.GAS_PRICE }}</span> <span class="text-sm text-gray-400">gwei*</span>
             </template>
           </p>
           <template v-if="!(systemState.blockchainData.base_fee_gwei && systemState.blockchainData.base_fee_gwei > 0)">
@@ -87,7 +88,7 @@ const isManualMode = computed(() => props.systemState.mode === 'manual')
         <div class="bg-gray-900/50 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-orange-400 mb-1">PE - Block Utilization</h3>
           <p class="text-2xl font-bold text-white">
-            {{ systemState.blockchainData.block_fullness_percent?.toFixed(2) || '0.00' }}<span class="text-sm text-gray-400">%</span>
+            {{ systemState.blockchainData.block_fullness_percent?.toFixed(UI_CONFIG.DECIMAL_PLACES.PERCENTAGE) || DEFAULT_VALUES.BLOCKCHAIN_FALLBACK.PERCENTAGE }}<span class="text-sm text-gray-400">%</span>
           </p>
         </div>
       </div>
@@ -112,12 +113,12 @@ const isManualMode = computed(() => props.systemState.mode === 'manual')
                 {{ motorName.replace('motor_', '').toUpperCase() }}
               </h3>
               <p class="text-lg font-bold text-white">
-                {{ (state.velocity_rpm || 0).toFixed(1) }} RPM
+                {{ (state.velocity_rpm || 0).toFixed(UI_CONFIG.DECIMAL_PLACES.PERCENTAGE_PRECISE) }} RPM
               </p>
             </div>
             <div class="text-right">
               <div class="text-sm text-gray-400">Direction</div>
-              <div class="text-sm font-semibold text-blue-400">{{ state.direction || 'CW' }}</div>
+              <div class="text-sm font-semibold text-blue-400">{{ state.direction || DEFAULT_VALUES.MOTOR_DIRECTION }}</div>
             </div>
           </div>
         </div>

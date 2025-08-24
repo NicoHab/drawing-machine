@@ -4,6 +4,7 @@ import MotorControl from '../components/MotorControl.vue'
 import MotorVisualization from '../components/MotorVisualization.vue'
 import ModeSelector from '../components/ModeSelector.vue'
 import DataDisplayPanel from '../components/DataDisplayPanel.vue'
+import { WEBSOCKET_CONFIG, MOTOR_CONFIG } from '../config/constants'
 
 // WebSocket connection
 const ws = ref<WebSocket | null>(null)
@@ -67,7 +68,7 @@ const connect = () => {
 
   ws.value.onclose = () => {
     connectionStatus.value = 'disconnected'
-    setTimeout(connect, 3000) // Auto-reconnect
+    setTimeout(connect, WEBSOCKET_CONFIG.RECONNECT_DELAY)
   }
 
   ws.value.onerror = (error) => {
@@ -97,7 +98,7 @@ const handleMessage = (data: any) => {
 
     case 'system_state':
       const now = Date.now()
-      if (now - lastModeChangeTime > 2000) {
+      if (now - lastModeChangeTime > WEBSOCKET_CONFIG.MODE_CHANGE_DEBOUNCE) {
         systemState.mode = data.mode
         if (data.motor_states) {
           // Merge motor states instead of replacing
@@ -292,7 +293,7 @@ onUnmounted(() => {
 
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <MotorControl v-for="(state, motorName) in systemState.motorStates" :key="motorName"
-              :motor-name="motorName as string" :motor-state="state" :safety-limit="50"
+              :motor-name="motorName as string" :motor-state="state" :safety-limit="MOTOR_CONFIG.SAFETY_LIMIT_RPM"
               :disabled="connectionStatus !== 'connected'" @motorCommand="sendMotorCommand" />
           </div>
         </div>
