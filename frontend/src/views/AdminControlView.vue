@@ -1,230 +1,38 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, reactive } from 'vue'
+import { ref, onMounted } from 'vue'
 import MotorControl from '../components/MotorControl.vue'
 import MotorVisualization from '../components/MotorVisualization.vue'
 import ModeSelector from '../components/ModeSelector.vue'
 import DataDisplayPanel from '../components/DataDisplayPanel.vue'
-import { WEBSOCKET_CONFIG, MOTOR_CONFIG } from '../config/constants'
+import { MOTOR_CONFIG } from '../config/constants'
+import { useWebSocket } from '../composables/useWebSocket'
 
-// WebSocket connection
-const ws = ref<WebSocket | null>(null)
-const connectionStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
-
-// System state
-const systemState = reactive({
-  mode: 'manual',
-  motorStates: {
-    motor_canvas: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true },
-    motor_pb: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true },
-    motor_pcd: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true },
-    motor_pe: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true }
-  } as Record<string, any>,
-  blockchainData: {
-    eth_price_usd: 0,
-    gas_price_gwei: 0,
-    base_fee_gwei: 0,
-    block_number: 'Loading...',
-    block_fullness_percent: 0,
-    blob_space_utilization_percent: 0,
-    epoch: 'N/A',
-    data_sources: {}
-  }
-})
-
-// Connection settings
-const wsUrl = ref(import.meta.env.VITE_BACKEND_URL || 'wss://drawing-machine-production.up.railway.app')
+// WebSocket connection using composable
+const wsUrl = import.meta.env.VITE_BACKEND_URL || 'wss://drawing-machine-production.up.railway.app'
 const apiKey = ref('')
-let lastModeChangeTime = 0
 
-// Debug tracking
-const lastMessageReceived = ref<any>(null)
-const messagesReceived = ref(0)
-
-// Connect to WebSocket server
-const connect = () => {
-  if (ws.value?.readyState === WebSocket.OPEN) {
-    return
-  }
-
-  connectionStatus.value = 'connecting'
-  ws.value = new WebSocket(wsUrl.value)
-
-  ws.value.onopen = () => {
-    connectionStatus.value = 'connected'
-
-    // Send authentication
-    const authMessage = {
-      type: 'authenticate',
-      client_type: 'web_ui',
-      user_info: {},
-      api_key: apiKey.value
-    }
-    ws.value?.send(JSON.stringify(authMessage))
-  }
-
-  ws.value.onmessage = (event) => {
-    handleMessage(JSON.parse(event.data))
-  }
-
-  ws.value.onclose = () => {
-    connectionStatus.value = 'disconnected'
-    setTimeout(connect, WEBSOCKET_CONFIG.RECONNECT_DELAY)
-  }
-
-  ws.value.onerror = (error) => {
-    console.error('WebSocket error:', error)
-    connectionStatus.value = 'disconnected'
-  }
-}
-
-// Handle incoming messages
-const handleMessage = (data: any) => {
-
-  // Update debug tracking
-  messagesReceived.value++
-  lastMessageReceived.value = {
-    type: data.type,
-    timestamp: new Date().toLocaleTimeString(),
-    hasMotorCommands: !!data.motor_commands,
-    motorCommandsCount: data.motor_commands ? Object.keys(data.motor_commands).length : 0
-  }
-
-  switch (data.type) {
-    case 'authenticated':
-      if (data.api_access === false) {
-        alert('Demo mode: Blockchain API disabled. Enter API key to enable live data.')
-      }
-      break
-
-    case 'system_state':
-      const now = Date.now()
-      if (now - lastModeChangeTime > WEBSOCKET_CONFIG.MODE_CHANGE_DEBOUNCE) {
-        systemState.mode = data.mode
-        if (data.motor_states) {
-          // Merge motor states instead of replacing
-          Object.keys(data.motor_states).forEach(motorName => {
-            if (systemState.motorStates[motorName]) {
-              Object.assign(systemState.motorStates[motorName], data.motor_states[motorName])
-            } else {
-              systemState.motorStates[motorName] = data.motor_states[motorName]
-            }
-          })
-        }
-      }
-      break
-
-    case 'mode_changed':
-      if (data.new_mode) {
-        systemState.mode = data.new_mode
-      }
-      break
-
-    case 'blockchain_data':
-    case 'blockchain_data_update':
-      const incomingData = data.blockchain_data || data.data
-
-      if (data.blockchain_data) {
-        Object.assign(systemState.blockchainData, data.blockchain_data)
-      } else if (data.data) {
-        Object.assign(systemState.blockchainData, data.data)
-      }
-
-
-      // Check if motor commands are included in blockchain update
-      if (data.motor_commands) {
-
-        // Apply motor commands to update motor states
-        Object.keys(data.motor_commands).forEach(motorName => {
-          const motorCommand = data.motor_commands[motorName]
-          if (systemState.motorStates[motorName] && motorCommand) {
-
-            // Update motor state with new command
-            const oldRpm = systemState.motorStates[motorName].velocity_rpm
-            Object.assign(systemState.motorStates[motorName], {
-              velocity_rpm: motorCommand.velocity_rpm || 0,
-              direction: motorCommand.direction || 'CW',
-              last_update: Date.now() / 1000,
-              is_enabled: true
-            })
-          }
-        })
-      }
-      break
-
-    case 'motor_state_update':
-    case 'motor_update':
-      const oldState = systemState.motorStates[data.motor_name] ? { ...systemState.motorStates[data.motor_name] } : null
-      if (systemState.motorStates[data.motor_name]) {
-        Object.assign(systemState.motorStates[data.motor_name], data.state)
-      } else {
-        // Create new motor state if it doesn't exist
-        systemState.motorStates[data.motor_name] = data.state
-      }
-      break
-
-    case 'motor_command_executed':
-      break
-  }
-}
-
-// Motor control functions
-const sendMotorCommand = (motorName: string, velocity: number, direction: string) => {
-  if (ws.value?.readyState === WebSocket.OPEN) {
-    const command = {
-      type: 'motor_command',
-      motor_name: motorName,
-      velocity_rpm: velocity,
-      direction: direction
-    }
-    ws.value.send(JSON.stringify(command))
-  } else {
-    console.error('WebSocket not connected, status:', connectionStatus.value)
-  }
-}
-
-const emergencyStop = () => {
-  if (ws.value?.readyState === WebSocket.OPEN) {
-    ws.value.send(JSON.stringify({
-      type: 'emergency_stop'
-    }))
-  }
-}
-
-const switchMode = (newMode: string) => {
-  if (ws.value?.readyState === WebSocket.OPEN) {
-    lastModeChangeTime = Date.now()
-    const command = {
-      type: 'mode_change',
-      mode: newMode
-    }
-    ws.value.send(JSON.stringify(command))
-  } else {
-    console.error('Cannot switch mode - WebSocket not connected')
-  }
-}
+const { 
+  connectionStatus, 
+  systemState, 
+  connect, 
+  sendMotorCommand, 
+  switchMode, 
+  emergencyStop, 
+  updateApiKey 
+} = useWebSocket({
+  url: wsUrl,
+  clientType: 'web_ui',
+  apiKey: apiKey.value,
+  autoReconnect: true
+})
 
 // API key change handler
 const onApiKeyChange = () => {
-  // Re-authenticate with new API key
-  if (ws.value?.readyState === WebSocket.OPEN) {
-    ws.value.send(JSON.stringify({
-      type: 'authenticate',
-      client_type: 'web_ui',
-      user_info: {},
-      api_key: apiKey.value
-    }))
-  }
+  updateApiKey(apiKey.value)
 }
-
 
 onMounted(() => {
   connect()
-})
-
-onUnmounted(() => {
-  if (ws.value) {
-    ws.value.close()
-  }
 })
 </script>
 

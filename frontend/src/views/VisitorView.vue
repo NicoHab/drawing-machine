@@ -1,175 +1,34 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, computed } from 'vue'
 import MotorVisualization from '../components/MotorVisualization.vue'
 import DataDisplayPanel from '../components/DataDisplayPanel.vue'
-import { WEBSOCKET_CONFIG } from '../config/constants'
+import { useWebSocket } from '../composables/useWebSocket'
 
-// Connection settings (read-only connection)
-const wsUrl = ref(import.meta.env.VITE_BACKEND_URL || 'wss://drawing-machine-production.up.railway.app')
+// WebSocket connection using composable
+const wsUrl = import.meta.env.VITE_BACKEND_URL || 'wss://drawing-machine-production.up.railway.app'
 
-// WebSocket connection
-const ws = ref<WebSocket | null>(null)
-const connectionStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
-
-// System state (read-only)
-const systemState = reactive({
-  mode: 'auto',
-  blockchainData: {
-    eth_price_usd: 0,
-    gas_price_gwei: 0,
-    base_fee_gwei: 0,
-    blob_space_utilization_percent: 0,
-    block_fullness_percent: 0,
-    block_number: 0,
-    epoch: 0
-  },
-  motorStates: {
-    motor_canvas: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true },
-    motor_pb: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true },
-    motor_pcd: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true },
-    motor_pe: { velocity_rpm: 0, direction: 'CW', last_update: Date.now() / 1000, is_enabled: true }
-  } as Record<string, any>
+const { 
+  connectionStatus, 
+  systemState, 
+  connect 
+} = useWebSocket({
+  url: wsUrl,
+  clientType: 'visitor',
+  autoReconnect: true
 })
-
-// Connect to WebSocket (read-only, no authentication)
-const connectToServer = () => {
-
-  ws.value = new WebSocket(wsUrl.value)
-
-  ws.value.onopen = () => {
-    connectionStatus.value = 'connected'
-
-    // Send authentication message (visitor mode, no API key)
-    if (ws.value) {
-      ws.value.send(JSON.stringify({
-        type: 'authenticate',
-        client_type: 'visitor',
-        user_info: {},
-        api_key: '' // No API key for visitors
-      }))
-    }
-  }
-
-  ws.value.onclose = () => {
-    connectionStatus.value = 'disconnected'
-    // Auto-reconnect for visitors
-    setTimeout(connectToServer, WEBSOCKET_CONFIG.VISITOR_RECONNECT_DELAY)
-  }
-
-  ws.value.onerror = (error) => {
-    console.error('Visitor WebSocket error:', error)
-    connectionStatus.value = 'disconnected'
-  }
-
-  ws.value.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      handleMessage(data)
-    } catch (error) {
-      console.error('Failed to parse WebSocket message:', error)
-    }
-  }
-}
-
-// Handle incoming messages (read-only)
-const handleMessage = (data: any) => {
-
-  switch (data.type) {
-    case 'authenticated':
-      break
-
-    case 'authentication_failed':
-      console.error('Visitor authentication failed:', data)
-      // For visitors, authentication failure shouldn't happen now, but handle gracefully
-      connectionStatus.value = 'disconnected'
-      break
-
-    case 'system_state':
-      if (data.mode) {
-        systemState.mode = data.mode
-      }
-      if (data.motor_states) {
-        // Merge motor states instead of replacing (like AdminControlView)
-        Object.keys(data.motor_states).forEach(motorName => {
-          if (systemState.motorStates[motorName]) {
-            Object.assign(systemState.motorStates[motorName], data.motor_states[motorName])
-          } else {
-            systemState.motorStates[motorName] = data.motor_states[motorName]
-          }
-        })
-      }
-      break
-
-    case 'mode_changed':
-      if (data.new_mode) {
-        systemState.mode = data.new_mode
-      }
-      break
-
-    case 'blockchain_data':
-    case 'blockchain_data_update':
-      const incomingData = data.blockchain_data || data.data
-
-      if (data.blockchain_data) {
-        Object.assign(systemState.blockchainData, data.blockchain_data)
-      } else if (data.data) {
-        Object.assign(systemState.blockchainData, data.data)
-      }
-
-
-      // Check if motor commands are included in blockchain update
-      if (data.motor_commands) {
-
-        // Apply motor commands to update motor states
-        Object.keys(data.motor_commands).forEach(motorName => {
-          const motorCommand = data.motor_commands[motorName]
-          if (systemState.motorStates[motorName] && motorCommand) {
-
-            // Update motor state with new command
-            Object.assign(systemState.motorStates[motorName], {
-              velocity_rpm: motorCommand.velocity_rpm || 0,
-              direction: motorCommand.direction || 'CW',
-              last_update: Date.now() / 1000,
-              is_enabled: true
-            })
-          }
-        })
-      }
-      break
-
-    case 'motor_state_update':
-    case 'motor_update':
-      if (data.motor_name && data.state) {
-        const oldState = systemState.motorStates[data.motor_name] ? { ...systemState.motorStates[data.motor_name] } : null
-        if (systemState.motorStates[data.motor_name]) {
-          Object.assign(systemState.motorStates[data.motor_name], data.state)
-        } else {
-          // Create new motor state if it doesn't exist
-          systemState.motorStates[data.motor_name] = data.state
-        }
-      }
-      break
-  }
-}
 
 // Computed values
 const isConnected = computed(() => {
-  const connected = connectionStatus.value === 'connected'
-  return connected
+  return connectionStatus.value === 'connected'
 })
+
 const currentModeDisplay = computed(() => {
   return systemState.mode === 'auto' ? 'Blockchain Auto' : 'Manual Control'
 })
 
 // Lifecycle
 onMounted(() => {
-  connectToServer()
-})
-
-onUnmounted(() => {
-  if (ws.value) {
-    ws.value.close()
-  }
+  connect()
 })
 </script>
 
