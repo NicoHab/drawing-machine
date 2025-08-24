@@ -29,7 +29,7 @@ const systemState = reactive({
 })
 
 // Connection settings
-const wsUrl = ref(import.meta.env.VITE_BACKEND_URL || 'ws://localhost:8768')
+const wsUrl = ref(import.meta.env.VITE_BACKEND_URL || 'wss://drawing-machine-production.up.railway.app')
 const apiKey = ref('')
 let lastModeChangeTime = 0
 
