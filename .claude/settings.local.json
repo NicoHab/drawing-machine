@@ -11,9 +11,13 @@
       "Bash(poetry add:*)",
       "Bash(poetry run:*)",
       "Bash(git commit:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\development"
+    ]
   }
 }

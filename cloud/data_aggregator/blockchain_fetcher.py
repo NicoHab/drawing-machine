@@ -65,6 +65,7 @@ class BlockchainDataFetcher:
         self._fallback_data = {
             "eth_price_usd": 2500.0,
             "gas_price_gwei": 25.0,
+            "base_fee_gwei": 20.0,  # Typical base fee slightly below gas price
             "beacon_participation_rate": 95.0,
             "eth_staked_percent": 25.0,
         }
@@ -171,6 +172,7 @@ class BlockchainDataFetcher:
             self.logger.warning(f"All Ethereum data sources failed: {e}")
             return {
                 "gas_price_gwei": self._fallback_data["gas_price_gwei"],
+                "base_fee_gwei": self._fallback_data["base_fee_gwei"],
                 "blob_space_utilization_percent": 50.0,
                 "block_fullness_percent": 75.0,
                 "ethereum_rpc_available": False,
@@ -263,6 +265,18 @@ class BlockchainDataFetcher:
                         safe_gas_price = float(gas_result['SafeGasPrice'])
                         self.logger.info(f"Successfully parsed SafeGasPrice: {safe_gas_price}")
                         
+                        # Extract base fee (EIP-1559 target gas price)
+                        base_fee_gwei = self._fallback_data["gas_price_gwei"]  # Default fallback
+                        if 'suggestBaseFee' in gas_result:
+                            try:
+                                base_fee_gwei = float(gas_result['suggestBaseFee'])
+                                self.logger.info(f"Successfully parsed suggestBaseFee: {base_fee_gwei}")
+                            except (ValueError, TypeError) as e:
+                                self.logger.warning(f"Failed to parse suggestBaseFee, using fallback: {e}")
+                        else:
+                            self.logger.warning("No suggestBaseFee in gas API response, using SafeGasPrice as fallback")
+                            base_fee_gwei = safe_gas_price * 0.9  # Estimate base fee as ~90% of safe price
+                        
                         # Extract block number from gas API (it's already included!)
                         if 'LastBlock' in gas_result:
                             block_number = int(gas_result['LastBlock'])
@@ -284,6 +298,7 @@ class BlockchainDataFetcher:
                         
                         return {
                             "gas_price_gwei": safe_gas_price,
+                            "base_fee_gwei": base_fee_gwei,
                             "blob_space_utilization_percent": blob_utilization,
                             "block_fullness_percent": final_block_fullness,
                             "block_number": block_number,
@@ -335,6 +350,7 @@ class BlockchainDataFetcher:
                         
                         return {
                             "gas_price_gwei": gas_price_gwei,
+                            "base_fee_gwei": gas_price_gwei * 0.85,  # Estimate base fee as ~85% of current gas price
                             "blob_space_utilization_percent": self._estimate_blob_utilization_from_block(block_data),
                             "block_fullness_percent": block_fullness,
                             "ethereum_rpc_available": True,
@@ -476,6 +492,7 @@ class BlockchainDataFetcher:
         # Safely extract data with fallbacks
         eth_price = coinbase_data.get("eth_price_usd", self._fallback_data["eth_price_usd"]) if coinbase_data else self._fallback_data["eth_price_usd"]
         gas_price = ethereum_data.get("gas_price_gwei", self._fallback_data["gas_price_gwei"]) if ethereum_data else self._fallback_data["gas_price_gwei"]
+        base_fee_gwei = ethereum_data.get("base_fee_gwei", self._fallback_data["base_fee_gwei"]) if ethereum_data else self._fallback_data["base_fee_gwei"]
         blob_util = ethereum_data.get("blob_space_utilization_percent", 50.0) if ethereum_data else 50.0
         block_fullness = ethereum_data.get("block_fullness_percent", 75.0) if ethereum_data else 75.0
         block_number = ethereum_data.get("block_number", None) if ethereum_data else None
@@ -508,6 +525,7 @@ class BlockchainDataFetcher:
             "epoch": current_epoch,
             "eth_price_usd": eth_price,
             "gas_price_gwei": gas_price,
+            "base_fee_gwei": base_fee_gwei,
             "blob_space_utilization_percent": blob_util,
             "block_fullness_percent": block_fullness,
             "block_number": block_number,
@@ -580,6 +598,7 @@ class BlockchainDataFetcher:
             epoch=1337,  # Valid epoch number
             eth_price_usd=self._fallback_data["eth_price_usd"],
             gas_price_gwei=self._fallback_data["gas_price_gwei"],
+            base_fee_gwei=self._fallback_data["base_fee_gwei"],
             blob_space_utilization_percent=50.0,
             block_fullness_percent=75.0,
             data_quality=data_quality,

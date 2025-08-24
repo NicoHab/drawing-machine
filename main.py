@@ -115,8 +115,8 @@ async def start_blockchain_service():
                     await asyncio.sleep(5)
                     continue
                 
-                # Process blockchain data
-                result = await processor.process_current_data()
+                # Process blockchain data (force refresh to bypass cache)
+                result = await processor.process_current_data(force_refresh=True)
                 
                 if result and result.motors:
                     # Get latest blockchain snapshot for display data
@@ -129,8 +129,11 @@ async def start_blockchain_service():
                     if snapshot:
                         block_number = getattr(snapshot, 'block_number', 'N/A')
                         
+                        logger.debug(f"Block check: current={current_block}, new={block_number}, different={block_number != current_block}")
+                        
                         if block_number != current_block:
                             current_block = block_number
+                            logger.debug(f"New block detected: {block_number}")
                             
                             # Convert motor commands to execution format
                             motor_commands = {}
@@ -145,15 +148,26 @@ async def start_blockchain_service():
                             blockchain_data = {
                                 "eth_price_usd": getattr(snapshot, 'eth_price_usd', 0),
                                 "gas_price_gwei": getattr(snapshot, 'gas_price_gwei', 0),
+                                "base_fee_gwei": getattr(snapshot, 'base_fee_gwei', 0),
                                 "blob_space_utilization_percent": getattr(snapshot, 'blob_space_utilization_percent', 0),
                                 "block_fullness_percent": getattr(snapshot, 'block_fullness_percent', 0),
                                 "block_number": block_number,
                                 "epoch": getattr(snapshot, 'epoch', 'N/A'),
                                 "data_sources": getattr(snapshot, 'data_sources', {})
                             }
+                            
+                            # Debug: Check what base_fee_gwei value we're getting
+                            logger.debug(f"Snapshot base_fee_gwei: {getattr(snapshot, 'base_fee_gwei', 'MISSING')}")
+                            logger.debug(f"Blockchain_data base_fee_gwei: {blockchain_data['base_fee_gwei']}")
                         
-                        logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
-                                   f"Gas={blockchain_data['gas_price_gwei']:.1f} gwei")
+                        # Calculate gas ratio for logging
+                        if blockchain_data['base_fee_gwei'] > 0:
+                            gas_ratio = (blockchain_data['gas_price_gwei'] / blockchain_data['base_fee_gwei']) * 100
+                            logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
+                                       f"Gas={gas_ratio:.0f}% of target ({blockchain_data['gas_price_gwei']:.1f}/{blockchain_data['base_fee_gwei']:.1f} gwei)")
+                        else:
+                            logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
+                                       f"Gas={blockchain_data['gas_price_gwei']:.1f} gwei")
                         
                         # Save motor states for transitions
                         motor_states = {}
@@ -174,6 +188,9 @@ async def start_blockchain_service():
                                         "velocity_rpm": motor_data["velocity_rpm"],
                                         "direction": motor_data["direction"]
                                     }
+                                
+                                # Debug: Log what's being sent to frontend
+                                logger.debug(f"Sending to frontend: {blockchain_data}")
                                 
                                 # Broadcast blockchain data
                                 await cloud_orchestrator_instance.broadcast_blockchain_data(

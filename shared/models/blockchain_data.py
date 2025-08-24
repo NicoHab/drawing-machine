@@ -214,6 +214,13 @@ class EthereumDataSnapshot(BaseModel):
         description="Gas price in Gwei (0.1-1000), drives motor_pb (pen brush) pressure",
     )
 
+    base_fee_gwei: float = Field(
+        ...,
+        ge=0.1,
+        le=1000,
+        description="EIP-1559 base fee in Gwei (0.1-1000), target gas price for network equilibrium",
+    )
+
     blob_space_utilization_percent: float = Field(
         ...,
         ge=0,

@@ -42,7 +42,7 @@ class DataProcessor:
         # Caching and state - Reduced cache duration for live data
         self._data_cache: Dict[str, EthereumDataSnapshot] = {}
         self._command_cache: Dict[str, MotorVelocityCommands] = {}
-        self._cache_duration = timedelta(seconds=30)  # Cache for 30 seconds only for live updates
+        self._cache_duration = timedelta(seconds=5)  # Cache for 5 seconds for responsive live updates
         
         # Processing statistics
         self.stats = {

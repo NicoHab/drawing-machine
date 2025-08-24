@@ -69,12 +69,23 @@ const radius = 40
 watch(() => props.motorStates, (newStates) => {
   if (!newStates) return
   
+  console.log('MotorVisualization: Motor states updated:', newStates)
+  
   motors.value.forEach(motor => {
     const state = newStates[motor.key]
     if (state) {
-      motor.velocity = state.velocity_rpm || 0
-      motor.direction = state.direction || 'CW'
+      const oldVelocity = motor.velocity
+      const rawRpm = state.velocity_rpm || 0
+      const direction = state.direction || 'CW'
+      
+      // Convert to signed velocity: CW = positive, CCW = negative
+      motor.velocity = direction === 'CCW' ? -rawRpm : rawRpm
+      motor.direction = direction
       motor.lastUpdate = state.last_update || Date.now() / 1000
+      
+      if (oldVelocity !== motor.velocity) {
+        console.log(`MotorVisualization: ${motor.key} velocity changed: ${oldVelocity} -> ${motor.velocity}`)
+      }
     }
   })
 }, { deep: true })
@@ -184,13 +195,21 @@ const getMotorDataText = (motorKey: string) => {
   const data = props.blockchainData
   switch (motorKey) {
     case 'motor_canvas':
-      return `ETH: $${data.eth_price_usd?.toFixed(2) || '0.00'}`
+      return `Canvas - ETH Price: $${data.eth_price_usd?.toFixed(2) || '0.00'}`
     case 'motor_pb':
-      return `Gas: ${data.gas_price_gwei?.toFixed(3) || '0.000'} gwei`
+      // PB motor now uses blob space utilization (swapped from gas-target)
+      return `PB - Blob Utilization: ${data.blob_space_utilization_percent?.toFixed(1) || '0.0'}%`
     case 'motor_pcd':
-      return `Blob: ${data.blob_space_utilization_percent?.toFixed(1) || '0.0'}%`
+      // PCD motor now uses gas-target ratio (swapped from blob utilization)
+      if (data.base_fee_gwei && data.base_fee_gwei > 0) {
+        const gasRatio = (data.gas_price_gwei / data.base_fee_gwei) * 100
+        return `PCD - Gas Target: ${gasRatio.toFixed(1)}%`
+      } else {
+        // Fallback if no base fee data
+        return `PCD - Gas Target: ${data.gas_price_gwei?.toFixed(1) || '0.0'} gwei*`
+      }
     case 'motor_pe':
-      return `Block: ${data.block_fullness_percent?.toFixed(1) || '0.0'}%`
+      return `PE - Block Utilization: ${data.block_fullness_percent?.toFixed(1) || '0.0'}%`
     default:
       return ''
   }
@@ -263,29 +282,7 @@ const activeMotors = computed(() => {
         </div>
       </div>
     </div>
-    
-    <!-- Blockchain Data Panel (if available) -->
-    <div v-if="blockchainData" class="blockchain-panel">
-      <h4>📊 Live Blockchain Data</h4>
-      <div class="data-grid">
-        <div class="data-item">
-          <span class="label">ETH Price:</span>
-          <span class="value">${{ blockchainData.eth_price_usd?.toFixed(2) || '0.00' }}</span>
-        </div>
-        <div class="data-item">
-          <span class="label">Gas Price:</span>
-          <span class="value">{{ blockchainData.gas_price_gwei?.toFixed(3) || '0.000' }} gwei</span>
-        </div>
-        <div class="data-item">
-          <span class="label">Blob Utilization:</span>
-          <span class="value">{{ blockchainData.blob_space_utilization_percent?.toFixed(1) || '0.0' }}%</span>
-        </div>
-        <div class="data-item">
-          <span class="label">Block Fullness:</span>
-          <span class="value">{{ blockchainData.block_fullness_percent?.toFixed(1) || '0.0' }}%</span>
-        </div>
-      </div>
-    </div>
+
   </div>
 </template>
 

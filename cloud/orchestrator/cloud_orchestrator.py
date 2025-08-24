@@ -255,18 +255,19 @@ class CloudOrchestrator:
         provided_key = data.get("api_key", "")
         required_key = os.environ.get("DRAWING_MACHINE_API_KEY", "")
         
-        if not required_key:
-            # No API key set - allow basic web UI access but disable API calls
+        if not required_key or data.get("client_type") == "visitor":
+            # No API key set OR visitor client - allow demo access
             client.authenticated = False
             client.client_type = data.get("client_type", "web_ui")
             client.user_info = data.get("user_info", {})
             
+            demo_reason = "No API key configured" if not required_key else "Visitor mode"
             await self._send_to_client(client_id, {
                 "type": "authenticated",
                 "client_id": client_id,
                 "server_time": time.time(),
                 "api_access": False,
-                "message": "Demo mode - blockchain API disabled for cost control"
+                "message": f"Demo mode - {demo_reason}"
             })
             
         elif provided_key == required_key:
@@ -467,13 +468,17 @@ class CloudOrchestrator:
                 }
             })
             
-            # Broadcast command to session if client is in one
-            if client.current_session:
-                await self._broadcast_to_session(client.current_session, {
-                    "type": "motor_command_executed",
-                    "command": command_data,
-                    "timestamp": time.time()
-                }, exclude=client_id)
+            # Broadcast motor state update to ALL clients (not just session clients)
+            motor_state = {
+                "velocity_rpm": data.get("velocity_rpm", 0),
+                "direction": data.get("direction", "CW"),
+                "last_update": time.time(),
+                "is_enabled": True,
+                "source": "manual"
+            }
+            
+            # Broadcast the updated motor state to all connected clients
+            await self.broadcast_motor_state_update(data.get("motor_name"), motor_state)
             
             await self._emit_event("motor_command", command_data)
             
@@ -557,14 +562,13 @@ class CloudOrchestrator:
                 "timestamp": time.time()
             })
             
-            # Broadcast mode change to session if client is in one
-            if client.current_session:
-                await self._broadcast_to_session(client.current_session, {
-                    "type": "mode_changed",
-                    "new_mode": new_mode,
-                    "changed_by": client_id,
-                    "timestamp": time.time()
-                }, exclude=client_id)
+            # Broadcast mode change to ALL clients (not just session clients)
+            await self._broadcast_to_all({
+                "type": "mode_changed",
+                "new_mode": new_mode,
+                "changed_by": client_id,
+                "timestamp": time.time()
+            })
             
             self.logger.info(f"Mode changed from {current_mode} to {new_mode} by client {client_id}")
             
@@ -808,33 +812,38 @@ class CloudOrchestrator:
             except:
                 pass
             
-            # Create motor states that the frontend expects
+            # Try to read current motor states from file, fallback to defaults
             motor_states = {
-                "motor_canvas": {
-                    "velocity_rpm": 0,
-                    "direction": "CW",
-                    "last_update": time.time(),
-                    "is_enabled": True
-                },
-                "motor_pb": {
-                    "velocity_rpm": 0,
-                    "direction": "CW", 
-                    "last_update": time.time(),
-                    "is_enabled": True
-                },
-                "motor_pcd": {
-                    "velocity_rpm": 0,
-                    "direction": "CW",
-                    "last_update": time.time(),
-                    "is_enabled": True
-                },
-                "motor_pe": {
-                    "velocity_rpm": 0,
-                    "direction": "CW",
-                    "last_update": time.time(),
-                    "is_enabled": True
-                }
+                "motor_canvas": {"velocity_rpm": 0, "direction": "CW", "last_update": time.time(), "is_enabled": True},
+                "motor_pb": {"velocity_rpm": 0, "direction": "CW", "last_update": time.time(), "is_enabled": True},
+                "motor_pcd": {"velocity_rpm": 0, "direction": "CW", "last_update": time.time(), "is_enabled": True},
+                "motor_pe": {"velocity_rpm": 0, "direction": "CW", "last_update": time.time(), "is_enabled": True}
             }
+            
+            # Try to read actual motor states from saved file
+            try:
+                import json
+                last_states_file = os.path.join(os.path.dirname(__file__), "../../last_motor_states.json")
+                if os.path.exists(last_states_file):
+                    with open(last_states_file, "r") as f:
+                        saved_states = json.load(f)
+                    
+                    # Update with saved states
+                    for motor_name, saved_state in saved_states.items():
+                        if motor_name in motor_states:
+                            motor_states[motor_name].update({
+                                "velocity_rpm": saved_state.get("velocity_rpm", 0),
+                                "direction": saved_state.get("direction", "CW"),
+                                "last_update": saved_state.get("last_update", time.time()),
+                                "is_enabled": saved_state.get("is_enabled", True)
+                            })
+                    
+                    self.logger.info(f"Loaded actual motor states from file for client {client_id}")
+                else:
+                    self.logger.info(f"No saved motor states found, using defaults for client {client_id}")
+                    
+            except Exception as e:
+                self.logger.warning(f"Failed to read saved motor states: {e}, using defaults")
             
             # Safety limits
             safety_limits = {
@@ -866,7 +875,16 @@ class CloudOrchestrator:
             return
         
         try:
-            message_json = json.dumps(message)
+            # Debug: Log JSON serialization for blockchain data
+            if message.get('type') == 'blockchain_data_update':
+                self.logger.debug(f"JSON SERIALIZING base_fee_gwei: {message.get('blockchain_data', {}).get('base_fee_gwei', 'MISSING')}")
+                message_json = json.dumps(message)
+                # Parse it back to verify
+                parsed = json.loads(message_json)
+                self.logger.debug(f"JSON PARSED BACK base_fee_gwei: {parsed.get('blockchain_data', {}).get('base_fee_gwei', 'MISSING')}")
+            else:
+                message_json = json.dumps(message)
+            
             await client.websocket.send(message_json)
         except Exception as e:
             self.logger.warning(f"Failed to send to client {client_id}: {e}")
@@ -897,12 +915,20 @@ class CloudOrchestrator:
     async def broadcast_blockchain_data(self, blockchain_data: Dict, motor_commands: Dict):
         """Broadcast blockchain data and motor commands to all connected clients."""
         try:
+            # Debug: Log what we're receiving
+            self.logger.debug(f"ORCHESTRATOR RECEIVED blockchain_data: {blockchain_data}")
+            self.logger.debug(f"ORCHESTRATOR RECEIVED base_fee_gwei: {blockchain_data.get('base_fee_gwei', 'MISSING')}")
+            
             message = {
                 "type": "blockchain_data_update",
                 "blockchain_data": blockchain_data,
                 "motor_commands": motor_commands,
                 "timestamp": time.time()
             }
+            
+            # Debug: Log what we're sending
+            self.logger.debug(f"ORCHESTRATOR SENDING base_fee_gwei: {message['blockchain_data'].get('base_fee_gwei', 'MISSING')}")
+            
             await self._broadcast_to_all(message)
             self.logger.debug(f"Broadcasted blockchain data to {len(self.clients)} clients")
             
