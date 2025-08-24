@@ -37,7 +37,7 @@ const isManualMode = computed(() => props.systemState.mode === 'manual')
       </h2>
       
       <!-- Block & Epoch Info at Top -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-gray-900/50 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-white mb-1">Current Epoch</h3>
           <p class="text-2xl font-bold text-white">
@@ -54,7 +54,7 @@ const isManualMode = computed(() => props.systemState.mode === 'manual')
       </div>
 
       <!-- Main Blockchain Data -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-gray-900/50 rounded-lg p-4">
           <h3 class="text-sm font-semibold text-blue-400 mb-1">Canvas - ETH Price</h3>
           <p class="text-2xl font-bold text-white">
@@ -135,20 +135,11 @@ const isManualMode = computed(() => props.systemState.mode === 'manual')
   /* Consistent styling handled by Tailwind classes */
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .grid-cols-4 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .grid-cols-4 {
-    grid-template-columns: 1fr;
-  }
-  
+/* Responsive adjustments - ensure single column on small screens only */
+@media (max-width: 767px) {
+  .grid-cols-4,
   .grid-cols-2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 }
 </style>

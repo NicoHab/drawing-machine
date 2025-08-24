@@ -273,6 +273,8 @@ const activeMotors = computed(() => {
         width="600" 
         height="400"
         :class="{ active: isActive }"
+        class="w-full h-auto max-w-full"
+        style="max-width: 100%; height: auto;"
       ></canvas>
       
       <div v-if="!isActive" class="overlay">
@@ -330,12 +332,17 @@ const activeMotors = computed(() => {
   background: #f8f9fa;
   border-radius: 8px;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 canvas {
   border: 1px solid #ddd;
   background: white;
   transition: opacity 0.3s;
+  display: block;
+  max-width: 100%;
+  height: auto;
 }
 
 canvas.active {
@@ -411,9 +418,20 @@ canvas:not(.active) {
 }
 
 @media (max-width: 768px) {
+  .motor-visualization {
+    padding: 15px;
+  }
+  
   canvas {
     width: 100%;
     height: auto;
+    max-width: 100%;
+  }
+  
+  .canvas-container {
+    margin: 0;
+    width: 100%;
+    overflow-x: hidden;
   }
   
   .viz-header {
@@ -424,6 +442,7 @@ canvas:not(.active) {
   
   .viz-stats {
     justify-content: center;
+    flex-wrap: wrap;
   }
   
   .data-grid {
