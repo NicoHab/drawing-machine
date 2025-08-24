@@ -104,123 +104,123 @@ async def start_blockchain_service():
     
     processor = DataProcessor()
     
-    async def blockchain_loop():
-        current_block = None
-        
-        while True:
-            try:
-                mode = get_system_mode()
-                if mode != "auto":
-                    logger.debug("System in manual mode, pausing blockchain processing")
-                    await asyncio.sleep(5)
-                    continue
+    # Event-driven blockchain processing callback
+    async def on_new_block(block_number: int):
+        """Handle new block events from WebSocket subscription."""
+        try:
+            mode = get_system_mode()
+            if mode != "auto":
+                logger.debug(f"System in manual mode, ignoring block {block_number}")
+                return
+            
+            logger.info(f"🔥 Processing new block: {block_number}")
+            
+            # Process blockchain data (force refresh to bypass cache)
+            result = await processor.process_current_data(force_refresh=True)
+            
+            if result and result.motors:
+                # Use the SAME blockchain data for both motor commands and display
+                # This ensures perfect consistency between calculated RPMs and displayed metrics
+                source_data = result.source_data
                 
-                # Process blockchain data (force refresh to bypass cache)
-                result = await processor.process_current_data(force_refresh=True)
-                
-                if result and result.motors:
-                    # Get latest blockchain snapshot for display data
-                    try:
-                        snapshot = await processor.fetcher.fetch_current_data()
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch display data: {e}")
-                        snapshot = None
+                if source_data:
+                    # Convert motor commands to execution format
+                    motor_commands = {}
+                    for motor_name, motor_cmd in result.motors.items():
+                        motor_commands[motor_name] = {
+                            "velocity_rpm": motor_cmd.velocity_rpm,
+                            "direction": motor_cmd.direction.value,
+                            "duration_seconds": getattr(motor_cmd, 'duration_seconds', 3.4)
+                        }
                     
-                    if snapshot:
-                        block_number = getattr(snapshot, 'block_number', 'N/A')
-                        
-                        logger.debug(f"Block check: current={current_block}, new={block_number}, different={block_number != current_block}")
-                        
-                        if block_number != current_block:
-                            current_block = block_number
-                            logger.debug(f"New block detected: {block_number}")
-                            
-                            # Convert motor commands to execution format
-                            motor_commands = {}
-                            for motor_name, motor_cmd in result.motors.items():
-                                motor_commands[motor_name] = {
-                                    "velocity_rpm": motor_cmd.velocity_rpm,
-                                    "direction": motor_cmd.direction.value,
-                                    "duration_seconds": getattr(motor_cmd, 'duration_seconds', 3.4)
+                    # Use the SAME blockchain data that was used for motor calculation
+                    blob_util_for_motor = getattr(source_data, 'blob_space_utilization_percent', 0)
+                    logger.info(f"🔍 DEBUG: Motor calculation used blob_util={blob_util_for_motor}%")
+                    
+                    blockchain_data = {
+                        "eth_price_usd": getattr(source_data, 'eth_price_usd', 0),
+                        "gas_price_gwei": getattr(source_data, 'gas_price_gwei', 0),
+                        "base_fee_gwei": getattr(source_data, 'base_fee_gwei', 0),
+                        "blob_space_utilization_percent": blob_util_for_motor,
+                        "block_fullness_percent": getattr(source_data, 'block_fullness_percent', 0),
+                        "block_number": block_number,
+                        "epoch": getattr(source_data, 'epoch', 'N/A'),
+                        "data_sources": getattr(source_data, 'data_sources', {})
+                    }
+                    
+                    logger.info(f"🔍 DEBUG: Sending to frontend blob_util={blockchain_data['blob_space_utilization_percent']}%")
+                    
+                    # Calculate gas ratio for logging
+                    if blockchain_data['base_fee_gwei'] > 0:
+                        gas_ratio = (blockchain_data['gas_price_gwei'] / blockchain_data['base_fee_gwei']) * 100
+                        logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
+                                   f"Gas={gas_ratio:.0f}% of target ({blockchain_data['gas_price_gwei']:.1f}/{blockchain_data['base_fee_gwei']:.1f} gwei)")
+                    else:
+                        logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
+                                   f"Gas={blockchain_data['gas_price_gwei']:.1f} gwei")
+                    
+                    # Save motor states for transitions
+                    motor_states = {}
+                    for motor_name, motor_data in motor_commands.items():
+                        motor_states[motor_name] = {
+                            "rpm": motor_data["velocity_rpm"],
+                            "dir": motor_data["direction"]
+                        }
+                    save_last_motor_states(motor_states)
+                    
+                    # Broadcast to connected web clients
+                    if cloud_orchestrator_instance:
+                        try:
+                            # Convert for frontend
+                            frontend_commands = {}
+                            for motor_name, motor_data in motor_commands.items():
+                                frontend_commands[motor_name] = {
+                                    "velocity_rpm": motor_data["velocity_rpm"],
+                                    "direction": motor_data["direction"]
                                 }
                             
-                            # Get blockchain data for display
-                            blockchain_data = {
-                                "eth_price_usd": getattr(snapshot, 'eth_price_usd', 0),
-                                "gas_price_gwei": getattr(snapshot, 'gas_price_gwei', 0),
-                                "base_fee_gwei": getattr(snapshot, 'base_fee_gwei', 0),
-                                "blob_space_utilization_percent": getattr(snapshot, 'blob_space_utilization_percent', 0),
-                                "block_fullness_percent": getattr(snapshot, 'block_fullness_percent', 0),
-                                "block_number": block_number,
-                                "epoch": getattr(snapshot, 'epoch', 'N/A'),
-                                "data_sources": getattr(snapshot, 'data_sources', {})
-                            }
+                            # Broadcast blockchain data
+                            await cloud_orchestrator_instance.broadcast_blockchain_data(
+                                blockchain_data, frontend_commands
+                            )
                             
-                            # Debug: Check what base_fee_gwei value we're getting
-                            logger.debug(f"Snapshot base_fee_gwei: {getattr(snapshot, 'base_fee_gwei', 'MISSING')}")
-                            logger.debug(f"Blockchain_data base_fee_gwei: {blockchain_data['base_fee_gwei']}")
-                        
-                        # Calculate gas ratio for logging
-                        if blockchain_data['base_fee_gwei'] > 0:
-                            gas_ratio = (blockchain_data['gas_price_gwei'] / blockchain_data['base_fee_gwei']) * 100
-                            logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
-                                       f"Gas={gas_ratio:.0f}% of target ({blockchain_data['gas_price_gwei']:.1f}/{blockchain_data['base_fee_gwei']:.1f} gwei)")
-                        else:
-                            logger.info(f"BLOCK {block_number}: ETH=${blockchain_data['eth_price_usd']:.2f}, "
-                                       f"Gas={blockchain_data['gas_price_gwei']:.1f} gwei")
-                        
-                        # Save motor states for transitions
-                        motor_states = {}
-                        for motor_name, motor_data in motor_commands.items():
-                            motor_states[motor_name] = {
-                                "rpm": motor_data["velocity_rpm"],
-                                "dir": motor_data["direction"]
-                            }
-                        save_last_motor_states(motor_states)
-                        
-                        # Broadcast to connected web clients
-                        if cloud_orchestrator_instance:
-                            try:
-                                # Convert for frontend
-                                frontend_commands = {}
-                                for motor_name, motor_data in motor_commands.items():
-                                    frontend_commands[motor_name] = {
+                            # Update individual motor states
+                            for motor_name, motor_data in frontend_commands.items():
+                                await cloud_orchestrator_instance.broadcast_motor_state_update(
+                                    motor_name, {
                                         "velocity_rpm": motor_data["velocity_rpm"],
-                                        "direction": motor_data["direction"]
+                                        "direction": motor_data["direction"],
+                                        "last_update": time.time(),
+                                        "is_enabled": True,
+                                        "source": "blockchain"
                                     }
-                                
-                                # Debug: Log what's being sent to frontend
-                                logger.debug(f"Sending to frontend: {blockchain_data}")
-                                
-                                # Broadcast blockchain data
-                                await cloud_orchestrator_instance.broadcast_blockchain_data(
-                                    blockchain_data, frontend_commands
                                 )
-                                
-                                # Update individual motor states
-                                for motor_name, motor_data in frontend_commands.items():
-                                    await cloud_orchestrator_instance.broadcast_motor_state_update(
-                                        motor_name, {
-                                            "velocity_rpm": motor_data["velocity_rpm"],
-                                            "direction": motor_data["direction"],
-                                            "last_update": time.time(),
-                                            "is_enabled": True,
-                                            "source": "blockchain"
-                                        }
-                                    )
-                                
-                                logger.info("Broadcasted blockchain data to web clients")
-                                
-                            except Exception as e:
-                                logger.error(f"Failed to broadcast data: {e}")
-                
-                await asyncio.sleep(10)  # Check every 10 seconds
-                
-            except Exception as e:
-                logger.error(f"Blockchain processing error: {e}")
-                await asyncio.sleep(30)  # Wait longer on errors
+                            
+                            logger.info("Broadcasted blockchain data to web clients")
+                            
+                        except Exception as e:
+                            logger.error(f"Failed to broadcast data: {e}")
+        
+        except Exception as e:
+            logger.error(f"Blockchain processing error: {e}")
     
-    return asyncio.create_task(blockchain_loop())
+    # Start WebSocket block subscription
+    logger.info("🚀 Starting WebSocket block subscription...")
+    websocket_success = await processor.fetcher.start_block_subscription(on_new_block)
+    
+    if websocket_success:
+        logger.info("✅ WebSocket block subscription active - real-time blockchain updates enabled")
+    else:
+        logger.info("📡 Using HTTP polling fallback - still functional but slower updates")
+    
+    # Keep the blockchain service alive
+    async def keep_alive():
+        while True:
+            await asyncio.sleep(60)  # Keep alive check every minute
+            if get_system_mode() == "auto":
+                logger.debug("Blockchain service alive and monitoring")
+    
+    return asyncio.create_task(keep_alive())
 
 async def main():
     """Main production server entry point."""

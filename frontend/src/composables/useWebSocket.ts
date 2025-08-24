@@ -73,8 +73,7 @@ export function useWebSocket(options: WebSocketOptions) {
     ws.value = new WebSocket(options.url)
 
     ws.value.onopen = () => {
-      connectionStatus.value = 'connected'
-      
+      // Stay in 'connecting' state until authenticated
       // Send authentication
       const authMessage = {
         type: 'authenticate',
@@ -117,6 +116,7 @@ export function useWebSocket(options: WebSocketOptions) {
   const handleMessage = (data: WebSocketMessage) => {
     switch (data.type) {
       case 'authenticated':
+        connectionStatus.value = 'connected'
         if (data.api_access === false) {
           if (options.clientType === 'web_ui') {
             alert('Demo mode: Blockchain API disabled. Enter API key to enable live data.')
@@ -151,28 +151,33 @@ export function useWebSocket(options: WebSocketOptions) {
       case 'blockchain_data_update':
         const incomingData = data.blockchain_data || data.data
         
+        // Prepare motor state updates first to ensure atomic update
+        const motorUpdates: Record<string, any> = {}
+        if (data.motor_commands) {
+          Object.keys(data.motor_commands).forEach(motorName => {
+            const motorCommand = data.motor_commands[motorName]
+            if (systemState.motorStates[motorName] && motorCommand) {
+              motorUpdates[motorName] = {
+                velocity_rpm: motorCommand.velocity_rpm || 0,
+                direction: motorCommand.direction || 'CW',
+                last_update: Date.now() / 1000,
+                is_enabled: true
+              }
+            }
+          })
+        }
+
+        // Atomic update: Apply blockchain data and motor states simultaneously
         if (data.blockchain_data) {
           Object.assign(systemState.blockchainData, data.blockchain_data)
         } else if (data.data) {
           Object.assign(systemState.blockchainData, data.data)
         }
-
-        // Check if motor commands are included in blockchain update
-        if (data.motor_commands) {
-          // Apply motor commands to update motor states
-          Object.keys(data.motor_commands).forEach(motorName => {
-            const motorCommand = data.motor_commands[motorName]
-            if (systemState.motorStates[motorName] && motorCommand) {
-              // Update motor state with new command
-              Object.assign(systemState.motorStates[motorName], {
-                velocity_rpm: motorCommand.velocity_rpm || 0,
-                direction: motorCommand.direction || 'CW',
-                last_update: Date.now() / 1000,
-                is_enabled: true
-              })
-            }
-          })
-        }
+        
+        // Apply motor updates immediately after blockchain data
+        Object.keys(motorUpdates).forEach(motorName => {
+          Object.assign(systemState.motorStates[motorName], motorUpdates[motorName])
+        })
         break
 
       case 'motor_state_update':
@@ -192,6 +197,7 @@ export function useWebSocket(options: WebSocketOptions) {
 
       case 'authentication_failed':
         console.error(`Authentication failed:`, data)
+        console.error(`Sent client_type: ${options.clientType}, api_key: "${options.apiKey || ''}"`)
         connectionStatus.value = 'disconnected'
         break
     }

@@ -15,6 +15,8 @@ from typing import Dict, List, Optional
 
 import aiohttp
 from aiohttp import ClientSession, ClientError
+import websockets
+import websockets.exceptions
 
 from shared.models.blockchain_data import (
     EthereumDataSnapshot,
@@ -59,7 +61,14 @@ class BlockchainDataFetcher:
         
         # Rate limiting
         self._last_fetch_time = {}
-        self._min_fetch_interval = 10.0  # Minimum seconds between API calls
+        self._min_fetch_interval = 5.0  # Minimum seconds between API calls
+        
+        # WebSocket configuration for real-time block updates  
+        self._websocket_url_template = "wss://mainnet.infura.io/ws/v3/{}"
+        self._websocket = None
+        self._websocket_connected = False
+        self._block_subscription_id = None
+        self._new_block_callback = None
         
         # Fallback data for when APIs are unavailable
         self._fallback_data = {
@@ -68,6 +77,14 @@ class BlockchainDataFetcher:
             "base_fee_gwei": 20.0,  # Typical base fee slightly below gas price
             "beacon_participation_rate": 95.0,
             "eth_staked_percent": 25.0,
+        }
+        
+        # Last successful values cache for better fallback strategy
+        self._last_successful_values = {
+            "blob_space_utilization_percent": 50.0,  # Initial default, updated with real values
+            "block_fullness_percent": 50.0,
+            "gas_price_gwei": 25.0,
+            "base_fee_gwei": 20.0,
         }
     
     async def fetch_current_data(self) -> EthereumDataSnapshot:
@@ -289,6 +306,9 @@ class BlockchainDataFetcher:
                         blob_utilization = self._estimate_blob_utilization_from_gas_ratio(gas_data)
                         self.logger.info(f"Enhanced blob utilization estimate: {blob_utilization}%")
                         
+                        # Cache successful blob utilization value
+                        self._last_successful_values["blob_space_utilization_percent"] = blob_utilization
+                        
                         # Get better block fullness estimate from gas utilization ratio
                         block_fullness_estimate = self._estimate_block_fullness_from_gas_ratio(gas_data)
                         self.logger.info(f"Block fullness estimate from gas ratio: {block_fullness_estimate}%")
@@ -348,10 +368,14 @@ class BlockchainDataFetcher:
                                 gas_limit = int(block_data['result']['gasLimit'], 16)
                                 block_fullness = (gas_used / gas_limit) * 100
                         
+                        # Calculate and cache blob utilization
+                        blob_utilization = self._estimate_blob_utilization_from_block(block_data)
+                        self._last_successful_values["blob_space_utilization_percent"] = blob_utilization
+                        
                         return {
                             "gas_price_gwei": gas_price_gwei,
                             "base_fee_gwei": gas_price_gwei * 0.85,  # Estimate base fee as ~85% of current gas price
-                            "blob_space_utilization_percent": self._estimate_blob_utilization_from_block(block_data),
+                            "blob_space_utilization_percent": blob_utilization,
                             "block_fullness_percent": block_fullness,
                             "ethereum_rpc_available": True,
                         }
@@ -382,7 +406,10 @@ class BlockchainDataFetcher:
                 return 30.0
         except Exception as e:
             self.logger.error(f"Error in _estimate_blob_utilization: {e}")
-            return 50.0  # Safe fallback
+            # Use last successful value instead of hardcoded 50%
+            last_value = self._last_successful_values.get("blob_space_utilization_percent", 50.0)
+            self.logger.info(f"Using cached blob utilization fallback: {last_value}%")
+            return last_value
     
     def _estimate_blob_utilization_from_gas_ratio(self, gas_data) -> float:
         """Enhanced blob utilization estimate using gas utilization ratios."""
@@ -442,7 +469,10 @@ class BlockchainDataFetcher:
                 return (blob_gas_used / max_blob_gas) * 100
         except:
             pass
-        return 50.0  # Default estimate
+        # Use last successful value instead of hardcoded 50%
+        last_value = self._last_successful_values.get("blob_space_utilization_percent", 50.0)
+        self.logger.debug(f"Using cached blob utilization estimate: {last_value}%")
+        return last_value
     
     async def _fetch_beacon_chain_data(self) -> Dict:
         """Fetch beacon chain data for Ethereum 2.0 metrics."""
@@ -519,6 +549,11 @@ class BlockchainDataFetcher:
         block_source = "etherscan.io/gas-api" if ethereum_data and ethereum_data.get("block_number") else "fallback"
         blob_source = "etherscan.io/gas-ratios" if ethereum_data and ethereum_data.get("ethereum_rpc_available") else "estimated"
         fullness_source = "etherscan.io/gas-ratios" if ethereum_data and ethereum_data.get("ethereum_rpc_available") else "fallback"
+        
+        # Cache successful blob utilization value for future fallback
+        if ethereum_data and ethereum_data.get("ethereum_rpc_available") and blob_util != 50.0:
+            self._last_successful_values["blob_space_utilization_percent"] = blob_util
+            self.logger.debug(f"Cached successful blob utilization: {blob_util}%")
         
         return {
             "timestamp": datetime.now().timestamp(),
@@ -684,3 +719,158 @@ class BlockchainDataFetcher:
         # Timeout reached, return current block anyway
         self.logger.warning(f"Timeout waiting for new block after {max_wait_seconds}s")
         return await self.get_latest_block_number()
+    
+    async def start_block_subscription(self, callback):
+        """
+        Start WebSocket subscription to new blocks for real-time updates.
+        
+        Args:
+            callback: Function to call when new block is detected
+        """
+        self._new_block_callback = callback
+        
+        # Try WebSocket connection first
+        try:
+            await self._connect_websocket()
+            if self._websocket_connected:
+                self.logger.info("✅ WebSocket block subscription started successfully")
+                return True
+        except Exception as e:
+            self.logger.warning(f"WebSocket connection failed, falling back to polling: {e}")
+        
+        # Fallback to polling mode
+        self.logger.info("🔄 Using HTTP polling fallback for block updates")
+        asyncio.create_task(self._polling_fallback())
+        return False
+    
+    async def _connect_websocket(self):
+        """Establish WebSocket connection and subscribe to new blocks."""
+        try:
+            # Get Infura key at runtime
+            infura_key = os.getenv("INFURA_PROJECT_ID", "3a7b211677634c9695618ea0e005403f")
+            websocket_url = self._websocket_url_template.format(infura_key)
+            
+            self.logger.info(f"Connecting to Ethereum WebSocket with key: {infura_key[:8]}...{infura_key[-4:]}")
+            self.logger.info(f"WebSocket URL: {websocket_url}")
+            
+            self._websocket = await websockets.connect(websocket_url)
+            self._websocket_connected = True
+            
+            # Subscribe to new blocks
+            subscription_request = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "eth_subscribe",
+                "params": ["newHeads"]
+            }
+            
+            await self._websocket.send(json.dumps(subscription_request))
+            
+            # Start listening for messages
+            asyncio.create_task(self._websocket_message_handler())
+            
+        except Exception as e:
+            self.logger.error(f"Failed to connect WebSocket: {e}")
+            self._websocket_connected = False
+            raise
+    
+    async def _websocket_message_handler(self):
+        """Handle incoming WebSocket messages."""
+        try:
+            async for message in self._websocket:
+                try:
+                    data = json.loads(message)
+                    
+                    # Handle subscription confirmation
+                    if 'id' in data and data.get('id') == 1:
+                        self._block_subscription_id = data.get('result')
+                        self.logger.info(f"Block subscription confirmed: {self._block_subscription_id}")
+                        continue
+                    
+                    # Handle new block notifications
+                    if 'params' in data and 'subscription' in data['params']:
+                        block_data = data['params']['result']
+                        block_number = int(block_data.get('number', '0x0'), 16)
+                        
+                        self.logger.info(f"🔥 New block via WebSocket: {block_number}")
+                        
+                        # Trigger callback with new block
+                        if self._new_block_callback:
+                            asyncio.create_task(self._new_block_callback(block_number))
+                            
+                except json.JSONDecodeError as e:
+                    self.logger.error(f"Failed to parse WebSocket message: {e}")
+                except Exception as e:
+                    self.logger.error(f"Error processing WebSocket message: {e}")
+                    
+        except websockets.exceptions.ConnectionClosed:
+            self.logger.warning("WebSocket connection closed, attempting reconnection...")
+            self._websocket_connected = False
+            await self._reconnect_websocket()
+        except Exception as e:
+            self.logger.error(f"WebSocket message handler error: {e}")
+            self._websocket_connected = False
+    
+    async def _reconnect_websocket(self):
+        """Attempt to reconnect WebSocket with exponential backoff."""
+        backoff_delay = 1
+        max_delay = 60
+        
+        while not self._websocket_connected:
+            try:
+                self.logger.info(f"Attempting WebSocket reconnection in {backoff_delay}s...")
+                await asyncio.sleep(backoff_delay)
+                
+                await self._connect_websocket()
+                
+                if self._websocket_connected:
+                    self.logger.info("✅ WebSocket reconnected successfully")
+                    break
+                    
+            except Exception as e:
+                self.logger.warning(f"Reconnection attempt failed: {e}")
+                backoff_delay = min(backoff_delay * 2, max_delay)
+    
+    async def _polling_fallback(self):
+        """Fallback polling mode when WebSocket is unavailable."""
+        last_block = await self.get_latest_block_number()
+        
+        while True:
+            try:
+                await asyncio.sleep(3)  # Poll every 3 seconds
+                current_block = await self.get_latest_block_number()
+                
+                if current_block > last_block:
+                    self.logger.info(f"🔄 New block via polling: {current_block}")
+                    
+                    if self._new_block_callback:
+                        asyncio.create_task(self._new_block_callback(current_block))
+                    
+                    last_block = current_block
+                    
+            except Exception as e:
+                self.logger.error(f"Polling fallback error: {e}")
+                await asyncio.sleep(5)
+    
+    async def stop_block_subscription(self):
+        """Stop block subscription and cleanup."""
+        if self._websocket and self._websocket_connected:
+            try:
+                # Unsubscribe
+                if self._block_subscription_id:
+                    unsubscribe_request = {
+                        "jsonrpc": "2.0",
+                        "id": 2,
+                        "method": "eth_unsubscribe",
+                        "params": [self._block_subscription_id]
+                    }
+                    await self._websocket.send(json.dumps(unsubscribe_request))
+                
+                await self._websocket.close()
+                self.logger.info("WebSocket block subscription stopped")
+            except Exception as e:
+                self.logger.error(f"Error stopping WebSocket subscription: {e}")
+        
+        self._websocket_connected = False
+        self._block_subscription_id = None
+        self._new_block_callback = None
