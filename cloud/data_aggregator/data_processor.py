@@ -78,24 +78,30 @@ class DataProcessor:
         
         try:
             self.logger.info(f"Processing data for epoch {epoch}")
+            self.logger.info(f"PROCESSOR: Cache bypass active, proceeding to fresh data fetch")
             self.stats["total_processed"] += 1
             
+            # TEMP FIX: Skip cache completely to force fresh motor generation
             # Check cache first (unless forced refresh)
-            if not force_refresh:
-                cached_commands = self._get_cached_commands(epoch)
-                if cached_commands:
-                    self.stats["cache_hits"] += 1
-                    self.logger.debug(f"Using cached commands for epoch {epoch}")
-                    return cached_commands
+            # if not force_refresh:
+            #     cached_commands = self._get_cached_commands(epoch)
+            #     if cached_commands:
+            #         self.stats["cache_hits"] += 1
+            #         self.logger.debug(f"Using cached commands for epoch {epoch}")
+            #         return cached_commands
             
             # Fetch fresh blockchain data
+            self.logger.info(f"PROCESSOR: About to fetch blockchain data for epoch {epoch}")
             blockchain_data = await self._fetch_with_retry()
+            self.logger.info(f"PROCESSOR: Blockchain data fetched - ETH: ${blockchain_data.eth_price_usd}, Blob: {blockchain_data.blob_space_utilization_percent}%")
             
             # Use real blockchain epoch if available, otherwise fall back to parameter
             real_epoch = getattr(blockchain_data, 'epoch', epoch)
+            self.logger.info(f"PROCESSOR: About to generate motor commands for epoch {real_epoch}")
             
             # Generate motor commands
             commands = await self._generate_with_validation(blockchain_data, real_epoch)
+            self.logger.info(f"PROCESSOR: Motor commands generated - PCD: {commands.motors.get('motor_pcd', 'MISSING')}")
             
             # Cache the results
             self._cache_data(blockchain_data)
@@ -113,7 +119,10 @@ class DataProcessor:
             self._update_processing_stats(process_time, False)
             self._record_error("process_current_data", str(e), e)
             
-            self.logger.error(f"Failed to process epoch {epoch}: {e}")
+            self.logger.error(f"PROCESSOR EXCEPTION: Failed to process epoch {epoch}: {e}")
+            self.logger.error(f"PROCESSOR EXCEPTION: Exception type: {type(e)}")
+            import traceback
+            self.logger.error(f"PROCESSOR EXCEPTION: Traceback: {traceback.format_exc()}")
             raise ProcessingError(f"Data processing failed for epoch {epoch}", "process_current_data", e)
     
     async def process_batch(self, epochs: List[int]) -> List[Tuple[int, Optional[MotorVelocityCommands]]]:
