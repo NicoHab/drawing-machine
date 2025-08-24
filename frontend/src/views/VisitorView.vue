@@ -41,12 +41,14 @@ const connectToServer = () => {
     connectionStatus.value = 'connected'
     
     // Send authentication message (visitor mode, no API key)
-    ws.value.send(JSON.stringify({
-      type: 'authenticate',
-      client_type: 'visitor',
-      user_info: {},
-      api_key: '' // No API key for visitors
-    }))
+    if (ws.value) {
+      ws.value.send(JSON.stringify({
+        type: 'authenticate',
+        client_type: 'visitor',
+        user_info: {},
+        api_key: '' // No API key for visitors
+      }))
+    }
   }
   
   ws.value.onclose = () => {
