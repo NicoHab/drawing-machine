@@ -45,13 +45,11 @@ const connect = () => {
     return
   }
 
-  console.log('Connecting to WebSocket at:', wsUrl.value)
   connectionStatus.value = 'connecting'
   ws.value = new WebSocket(wsUrl.value)
 
   ws.value.onopen = () => {
     connectionStatus.value = 'connected'
-    console.log(`🟢 CONNECTED to server at ${wsUrl.value}`)
 
     // Send authentication
     const authMessage = {
@@ -60,7 +58,6 @@ const connect = () => {
       user_info: {},
       api_key: apiKey.value
     }
-    console.log('🔵 Sending authentication:', authMessage)
     ws.value?.send(JSON.stringify(authMessage))
   }
 
@@ -70,7 +67,6 @@ const connect = () => {
 
   ws.value.onclose = () => {
     connectionStatus.value = 'disconnected'
-    console.log('Disconnected from server')
     setTimeout(connect, 3000) // Auto-reconnect
   }
 
@@ -82,8 +78,6 @@ const connect = () => {
 
 // Handle incoming messages
 const handleMessage = (data: any) => {
-  console.log(`🔥 WEBSOCKET MESSAGE RECEIVED: ${data.type}`, data)
-  console.log('🔥 Raw message data:', JSON.stringify(data, null, 2))
 
   // Update debug tracking
   messagesReceived.value++
@@ -96,18 +90,12 @@ const handleMessage = (data: any) => {
 
   switch (data.type) {
     case 'authenticated':
-      console.log('Successfully authenticated:', data.message)
-      console.log('Authentication response:', data)
       if (data.api_access === false) {
-        console.log('API access denied - in demo mode')
         alert('Demo mode: Blockchain API disabled. Enter API key to enable live data.')
-      } else {
-        console.log('API access granted - live blockchain data enabled')
       }
       break
 
     case 'system_state':
-      console.log('Updating system state:', data)
       const now = Date.now()
       if (now - lastModeChangeTime > 2000) {
         systemState.mode = data.mode
@@ -125,24 +113,14 @@ const handleMessage = (data: any) => {
       break
 
     case 'mode_changed':
-      console.log('Mode changed:', data)
       if (data.new_mode) {
         systemState.mode = data.new_mode
-        console.log('Updated system mode to:', systemState.mode)
       }
       break
 
     case 'blockchain_data':
     case 'blockchain_data_update':
-      console.log('Blockchain data received:', data)
-      console.log('Has motor_commands?', !!data.motor_commands)
-      console.log('Motor commands content:', data.motor_commands)
-
-      // Debug: Log what base_fee_gwei we're receiving
-      console.log('🚨 RAW WEBSOCKET MESSAGE:', JSON.stringify(data, null, 2))
       const incomingData = data.blockchain_data || data.data
-      console.log('🔍 WEBSOCKET DEBUG - Incoming base_fee_gwei:', incomingData?.base_fee_gwei)
-      console.log('🔍 WEBSOCKET DEBUG - Full incoming data:', incomingData)
 
       if (data.blockchain_data) {
         Object.assign(systemState.blockchainData, data.blockchain_data)
@@ -150,21 +128,14 @@ const handleMessage = (data: any) => {
         Object.assign(systemState.blockchainData, data.data)
       }
 
-      // Debug: Log state after assignment
-      console.log('🔍 WEBSOCKET DEBUG - State after assign:', systemState.blockchainData.base_fee_gwei)
-
-      // Debug blob utilization specifically for motor_pcd
-      console.log('Blob utilization for motor_pcd:', systemState.blockchainData.blob_space_utilization_percent)
 
       // Check if motor commands are included in blockchain update
       if (data.motor_commands) {
-        console.log('Motor commands from blockchain:', data.motor_commands)
 
         // Apply motor commands to update motor states
         Object.keys(data.motor_commands).forEach(motorName => {
           const motorCommand = data.motor_commands[motorName]
           if (systemState.motorStates[motorName] && motorCommand) {
-            console.log(`Updating motor ${motorName} from blockchain command:`, motorCommand)
 
             // Update motor state with new command
             const oldRpm = systemState.motorStates[motorName].velocity_rpm
@@ -174,7 +145,6 @@ const handleMessage = (data: any) => {
               last_update: Date.now() / 1000,
               is_enabled: true
             })
-            console.log(`Motor ${motorName} RPM updated: ${oldRpm} -> ${motorCommand.velocity_rpm}`)
           }
         })
       }
@@ -182,7 +152,6 @@ const handleMessage = (data: any) => {
 
     case 'motor_state_update':
     case 'motor_update':
-      console.log('Motor update received:', data)
       const oldState = systemState.motorStates[data.motor_name] ? { ...systemState.motorStates[data.motor_name] } : null
       if (systemState.motorStates[data.motor_name]) {
         Object.assign(systemState.motorStates[data.motor_name], data.state)
@@ -190,22 +159,15 @@ const handleMessage = (data: any) => {
         // Create new motor state if it doesn't exist
         systemState.motorStates[data.motor_name] = data.state
       }
-      console.log('Motor state updated:', {
-        motor: data.motor_name,
-        oldState,
-        newState: systemState.motorStates[data.motor_name]
-      })
       break
 
     case 'motor_command_executed':
-      console.log('Motor command executed:', data)
       break
   }
 }
 
 // Motor control functions
 const sendMotorCommand = (motorName: string, velocity: number, direction: string) => {
-  console.log('Sending motor command:', { motorName, velocity, direction })
   if (ws.value?.readyState === WebSocket.OPEN) {
     const command = {
       type: 'motor_command',
@@ -213,7 +175,6 @@ const sendMotorCommand = (motorName: string, velocity: number, direction: string
       velocity_rpm: velocity,
       direction: direction
     }
-    console.log('WebSocket command:', command)
     ws.value.send(JSON.stringify(command))
   } else {
     console.error('WebSocket not connected, status:', connectionStatus.value)
@@ -229,14 +190,12 @@ const emergencyStop = () => {
 }
 
 const switchMode = (newMode: string) => {
-  console.log('Switching mode to:', newMode)
   if (ws.value?.readyState === WebSocket.OPEN) {
     lastModeChangeTime = Date.now()
     const command = {
       type: 'mode_change',
       mode: newMode
     }
-    console.log('Sending mode change command:', command)
     ws.value.send(JSON.stringify(command))
   } else {
     console.error('Cannot switch mode - WebSocket not connected')

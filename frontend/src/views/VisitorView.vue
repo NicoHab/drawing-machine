@@ -32,12 +32,10 @@ const systemState = reactive({
 
 // Connect to WebSocket (read-only, no authentication)
 const connectToServer = () => {
-  console.log('Visitor connecting to:', wsUrl.value)
 
   ws.value = new WebSocket(wsUrl.value)
 
   ws.value.onopen = () => {
-    console.log('Visitor connected to server')
     connectionStatus.value = 'connected'
 
     // Send authentication message (visitor mode, no API key)
@@ -52,7 +50,6 @@ const connectToServer = () => {
   }
 
   ws.value.onclose = () => {
-    console.log('Visitor disconnected from server')
     connectionStatus.value = 'disconnected'
     // Auto-reconnect for visitors
     setTimeout(connectToServer, 5000)
@@ -75,28 +72,18 @@ const connectToServer = () => {
 
 // Handle incoming messages (read-only)
 const handleMessage = (data: any) => {
-  console.log('Visitor received message:', data.type)
-
-  // Debug: Log ALL WebSocket message data for blockchain updates
-  if (data.type === 'blockchain_data' || data.type === 'blockchain_data_update') {
-    console.log('🚨 RAW WEBSOCKET MESSAGE:', JSON.stringify(data, null, 2))
-  }
 
   switch (data.type) {
     case 'authenticated':
-      console.log('Visitor authenticated:', data)
-      console.log('Connection status after auth:', connectionStatus.value)
       break
 
     case 'authentication_failed':
       console.error('Visitor authentication failed:', data)
       // For visitors, authentication failure shouldn't happen now, but handle gracefully
       connectionStatus.value = 'disconnected'
-      console.log('Connection status after auth failure:', connectionStatus.value)
       break
 
     case 'system_state':
-      console.log('Visitor - Updating system state:', data)
       if (data.mode) {
         systemState.mode = data.mode
       }
@@ -113,20 +100,14 @@ const handleMessage = (data: any) => {
       break
 
     case 'mode_changed':
-      console.log('Visitor - Mode changed:', data)
       if (data.new_mode) {
         systemState.mode = data.new_mode
-        console.log('Visitor - Updated system mode to:', systemState.mode)
       }
       break
 
     case 'blockchain_data':
     case 'blockchain_data_update':
-      // Debug: Log what base_fee_gwei we're receiving
-      console.log('🚨 VISITOR RAW WEBSOCKET MESSAGE:', JSON.stringify(data, null, 2))
       const incomingData = data.blockchain_data || data.data
-      console.log('🔍 VISITOR DEBUG - Incoming base_fee_gwei:', incomingData?.base_fee_gwei)
-      console.log('🔍 VISITOR DEBUG - Full incoming data:', incomingData)
 
       if (data.blockchain_data) {
         Object.assign(systemState.blockchainData, data.blockchain_data)
@@ -134,18 +115,14 @@ const handleMessage = (data: any) => {
         Object.assign(systemState.blockchainData, data.data)
       }
 
-      // Debug: Log state after assignment
-      console.log('🔍 VISITOR DEBUG - State after assign:', systemState.blockchainData.base_fee_gwei)
 
       // Check if motor commands are included in blockchain update
       if (data.motor_commands) {
-        console.log('Visitor - Motor commands from blockchain:', data.motor_commands)
 
         // Apply motor commands to update motor states
         Object.keys(data.motor_commands).forEach(motorName => {
           const motorCommand = data.motor_commands[motorName]
           if (systemState.motorStates[motorName] && motorCommand) {
-            console.log(`Visitor - Updating motor ${motorName} from blockchain command:`, motorCommand)
 
             // Update motor state with new command
             Object.assign(systemState.motorStates[motorName], {
@@ -161,7 +138,6 @@ const handleMessage = (data: any) => {
 
     case 'motor_state_update':
     case 'motor_update':
-      console.log('Visitor - Motor update received:', data)
       if (data.motor_name && data.state) {
         const oldState = systemState.motorStates[data.motor_name] ? { ...systemState.motorStates[data.motor_name] } : null
         if (systemState.motorStates[data.motor_name]) {
@@ -170,11 +146,6 @@ const handleMessage = (data: any) => {
           // Create new motor state if it doesn't exist
           systemState.motorStates[data.motor_name] = data.state
         }
-        console.log('Visitor - Motor state updated:', {
-          motor: data.motor_name,
-          oldState,
-          newState: systemState.motorStates[data.motor_name]
-        })
       }
       break
   }
@@ -183,7 +154,6 @@ const handleMessage = (data: any) => {
 // Computed values
 const isConnected = computed(() => {
   const connected = connectionStatus.value === 'connected'
-  console.log('isConnected computed:', connected, 'status:', connectionStatus.value)
   return connected
 })
 const currentModeDisplay = computed(() => {

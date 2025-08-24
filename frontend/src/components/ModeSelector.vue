@@ -53,7 +53,6 @@ let isChangingMode = false
 const selectMode = (modeValue: string, event?: MouseEvent) => {
   // Prevent any action if we're already changing mode
   if (isChangingMode) {
-    console.log(`ModeSelector: BLOCKED - already changing mode`)
     return
   }
   
@@ -63,20 +62,17 @@ const selectMode = (modeValue: string, event?: MouseEvent) => {
     event.stopPropagation()
     
     if (!event.isTrusted) {
-      console.log(`ModeSelector: BLOCKED non-trusted event`)
       return
     }
   }
   
   // Only proceed if actually changing to a different mode
   if (modeValue === props.currentMode) {
-    console.log(`ModeSelector: Already in ${modeValue} mode`)
     return
   }
   
   // Set flag to prevent concurrent changes
   isChangingMode = true
-  console.log(`ModeSelector: Changing from ${props.currentMode} to ${modeValue}`)
   
   // Emit the change
   emit('modeChange', modeValue)

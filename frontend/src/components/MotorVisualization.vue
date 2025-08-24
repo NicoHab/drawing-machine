@@ -69,7 +69,6 @@ const radius = 40
 watch(() => props.motorStates, (newStates) => {
   if (!newStates) return
   
-  console.log('MotorVisualization: Motor states updated:', newStates)
   
   motors.value.forEach(motor => {
     const state = newStates[motor.key]
@@ -83,9 +82,6 @@ watch(() => props.motorStates, (newStates) => {
       motor.direction = direction
       motor.lastUpdate = state.last_update || Date.now() / 1000
       
-      if (oldVelocity !== motor.velocity) {
-        console.log(`MotorVisualization: ${motor.key} velocity changed: ${oldVelocity} -> ${motor.velocity}`)
-      }
     }
   })
 }, { deep: true })
